@@ -1,0 +1,1831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Chartd — Trade Journal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #080c12;
+    --surface:  #0f1520;
+    --surface2: #141c2a;
+    --border:   #1e2840;
+    --accent:   #00e5a0;
+    --accent2:  #00b8ff;
+    --blue:     #00b8ff;
+    --green:    #00e5a0;
+    --red:      #ff4560;
+    --yellow:   #f59e0b;
+    --text:     #e8edf5;
+    --muted:    #8b9ab8;
+    --mono:     'DM Mono', monospace;
+    --sans:     'DM Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,160,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,160,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ─────────────────────────────────────────────────── */
+  header {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,11,15,0.95);
+    backdrop-filter: blur(12px);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-mark {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+    font-size: 14px; font-weight: 700; color: white;
+    animation: pulse-logo 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse-logo {
+    0%,100% { opacity:1; } 50% { opacity:0.7; }
+  }
+
+  .logo-text { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo-text span { color: var(--accent); }
+
+  .header-right { display: flex; align-items: center; gap: 16px; }
+
+  .status-pill {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--surface);
+    cursor: default;
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+  .status-dot.connected { background: var(--green); box-shadow: 0 0 8px var(--green); animation: blink 2s infinite; }
+  .status-dot.syncing   { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); animation: blink 0.8s infinite; }
+  .status-dot.error     { background: var(--red); }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ── LAYOUT ─────────────────────────────────────────────────── */
+  .app {
+    position: relative; z-index: 1;
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    grid-template-rows: auto 1fr;
+    height: calc(100vh - 73px);
+  }
+
+  /* ── SIDEBAR ─────────────────────────────────────────────────── */
+  .sidebar {
+    grid-row: 1 / 3;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-track { background: transparent; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .sidebar-section {
+    padding: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  /* ── FORM ELEMENTS ───────────────────────────────────────────── */
+  label {
+    display: block;
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 7px;
+    font-family: var(--mono);
+    opacity: 0.7;
+  }
+
+  input, select, textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 11px 14px;
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 12px;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  input[type="password"] { letter-spacing: 2px; }
+  select option { background: var(--surface2); }
+  textarea { resize: vertical; min-height: 60px; }
+
+  .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* ── BUTTONS ─────────────────────────────────────────────────── */
+  .btn {
+    padding: 12px 18px;
+    border-radius: 8px;
+    border: none;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.5px;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    width: 100%;
+  }
+  .btn-primary:hover { background: #c73650; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { background: var(--muted); cursor: not-allowed; transform: none; }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    width: 100%;
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-green {
+    background: var(--green);
+    color: white;
+    width: 100%;
+  }
+  .btn-green:hover { background: #059669; }
+  .btn-green:disabled { background: var(--muted); cursor: not-allowed; }
+
+  /* ── STAT CARDS (top bar) ────────────────────────────────────── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .stat-card {
+    padding: 20px 24px;
+    border-right: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card:last-child { border-right: none; }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+  .stat-card.positive::before { background: var(--green); }
+  .stat-card.negative::before { background: var(--red); }
+  .stat-card.accent::before   { background: var(--accent); }
+
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 1px;
+    line-height: 1;
+    transition: color 0.3s;
+  }
+  .stat-value.pos { color: var(--green); }
+  .stat-value.neg { color: var(--red); }
+  .stat-value.neu { color: var(--text); }
+  .stat-value.acc { color: var(--accent); }
+
+  .stat-sub {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  /* ── MAIN CONTENT ────────────────────────────────────────────── */
+  .main {
+    overflow-y: auto;
+    padding: 24px;
+  }
+  .main::-webkit-scrollbar { width: 4px; }
+  .main::-webkit-scrollbar-track { background: transparent; }
+  .main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* ── SECTION HEADER ──────────────────────────────────────────── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .section-title {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-title::before {
+    content: '';
+    display: block;
+    width: 3px; height: 16px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  /* ── TRADE TABLE ─────────────────────────────────────────────── */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+
+  thead th {
+    padding: 13px 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text);
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    white-space: nowrap;
+    opacity: 0.8;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+    animation: slideIn 0.3s ease;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  td {
+    padding: 15px 16px;
+    font-family: var(--mono);
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: var(--mono);
+    letter-spacing: 0.5px;
+  }
+  .tag-long  { background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid rgba(16,185,129,0.3); }
+  .tag-short { background: rgba(239,68,68,0.15);  color: var(--red);   border: 1px solid rgba(239,68,68,0.3); }
+  .tag-inst  { background: rgba(59,130,246,0.15); color: var(--blue);  border: 1px solid rgba(59,130,246,0.3); }
+
+  .pnl-pos { color: var(--green); font-weight: 700; }
+  .pnl-neg { color: var(--red);   font-weight: 700; }
+  .pnl-neu { color: var(--muted); }
+
+  /* ── EMPTY STATE ─────────────────────────────────────────────── */
+  .empty-state {
+    padding: 60px 20px;
+    text-align: center;
+  }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.3; }
+  .empty-text { color: var(--muted); font-family: var(--mono); font-size: 14px; line-height: 2; }
+
+  /* ── MANUAL NOTE PANEL ───────────────────────────────────────── */
+  .note-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .note-panel-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 18px;
+    font-family: var(--mono);
+  }
+
+  /* ── EMOTION SLIDER ──────────────────────────────────────────── */
+  .emotion-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .emotion-block label { margin-bottom: 4px; display: block; }
+  .emotion-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    padding: 0;
+    margin-bottom: 0;
+    border: none;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+
+  /* ── TOAST ───────────────────────────────────────────────────── */
+  #toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    z-index: 1000;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s ease;
+    max-width: 320px;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.success { border-color: var(--green); color: var(--green); }
+  #toast.error   { border-color: var(--red);   color: var(--red);   }
+  #toast.info    { border-color: var(--blue);   color: var(--blue);  }
+
+  /* ── SETUP SCREEN ────────────────────────────────────────────── */
+  #setup-screen {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    z-index: 100;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 40px 20px;
+  }
+
+  .setup-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 40px;
+    width: 420px;
+    max-width: 100%;
+    position: relative;
+    overflow: visible;
+    margin: auto;
+  }
+  .setup-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+
+  .setup-title {
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 6px;
+  }
+  .setup-title span { color: var(--accent); }
+
+  .setup-sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 28px;
+    line-height: 1.8;
+  }
+
+  .setup-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .step-num {
+    width: 24px; height: 24px;
+    background: var(--accent);
+    color: white;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .step-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 20px 0;
+  }
+
+  .gs-instructions {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.9;
+    margin-bottom: 16px;
+  }
+  .gs-instructions a { color: var(--blue); text-decoration: none; }
+  .gs-instructions code {
+    background: var(--surface2);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--accent);
+    font-size: 10px;
+  }
+
+  /* ── SYNC LOG ────────────────────────────────────────────────── */
+  .sync-log {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    max-height: 120px;
+    overflow-y: auto;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 2;
+  }
+  .log-entry { display: flex; gap: 8px; }
+  .log-time  { color: var(--muted); flex-shrink: 0; }
+  .log-ok    { color: var(--green); }
+  .log-err   { color: var(--red);   }
+  .log-info  { color: var(--blue);  }
+
+  /* rule-following badge in trade table */
+  .compliance-badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .compliance-yes { background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid rgba(16,185,129,0.3); }
+  .compliance-no  { background: rgba(239,68,68,0.15);  color: var(--red);   border: 1px solid rgba(239,68,68,0.3); }
+
+  .daily-limit-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 6px;
+    overflow: hidden;
+  }
+  .daily-limit-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.5s, background 0.3s;
+  }
+
+  /* ── CSV DROP ZONE ───────────────────────────────────────────── */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 20px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 12px;
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(233,69,96,0.05);
+  }
+  .drop-zone input[type="file"] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer;
+    margin: 0; padding: 0; border: none;
+    width: 100%; height: 100%;
+  }
+  .drop-icon { font-size: 24px; margin-bottom: 6px; }
+  .drop-text { font-family: var(--mono); font-size: 13px; color: var(--muted); line-height: 2; }
+  .drop-text b { color: var(--accent); }
+  .csv-preview {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 10px;
+    line-height: 2;
+  }
+  .csv-preview b { color: var(--green); }
+
+  /* ── CHARTD BRAND OVERRIDES ──────────────────────────────────── */
+  .logo-text { font-family: 'Bebas Neue', sans-serif !important; }
+
+  .section-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px !important;
+    letter-spacing: 2px !important;
+    color: var(--muted) !important;
+  }
+
+  .sidebar-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 34px;
+    letter-spacing: 1px;
+    line-height: 1;
+  }
+
+  thead th {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+  }
+
+  td {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+  }
+
+  .tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+  }
+
+  .tag-long  { background: rgba(0,229,160,0.12); color: var(--green); border: 1px solid rgba(0,229,160,0.3); }
+  .tag-short { background: rgba(255,69,96,0.12);  color: var(--red);   border: 1px solid rgba(255,69,96,0.3); }
+  .tag-inst  { background: rgba(0,184,255,0.12); color: var(--blue);  border: 1px solid rgba(0,184,255,0.3); }
+
+  .compliance-yes { background: rgba(0,229,160,0.12); color: var(--green); border: 1px solid rgba(0,229,160,0.3); }
+  .compliance-no  { background: rgba(255,69,96,0.12);  color: var(--red);   border: 1px solid rgba(255,69,96,0.3); }
+
+  .btn-primary { background: var(--accent); color: #080c12; font-weight: 700; }
+  .btn-primary:hover { background: #00c98c; }
+
+  .btn-green { background: var(--accent); color: #080c12; font-weight: 700; }
+  .btn-green:hover { background: #00c98c; }
+
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,229,160,0.1); }
+
+  .setup-title span { color: var(--accent) !important; }
+
+  .note-panel-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 3px;
+  }
+
+  label {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* Glowing orb behind setup card */
+  #setup-screen::before {
+    content: '';
+    position: fixed;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(0,229,160,0.08) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    top: 50%; left: 50%; transform: translate(-50%,-50%);
+  }
+
+  /* Accent green dot for connected status */
+  .status-dot.connected { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+  /* Setup card top border */
+  .setup-card::before {
+    background: linear-gradient(90deg, var(--accent), var(--accent2)) !important;
+  }
+
+  /* Section title accent bar */
+  .section-title::before { background: var(--accent) !important; }
+
+  /* Stats bar card bottom accent */
+  .stat-card.positive::before { background: var(--green) !important; }
+  .stat-card.negative::before { background: var(--red) !important; }
+  .stat-card.accent::before   { background: var(--accent) !important; }
+
+  /* Sync log */
+  .log-ok   { color: var(--green) !important; }
+  .log-info { color: var(--accent2) !important; }
+
+  /* Drop zone hover */
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(0,229,160,0.04);
+  }
+  .drop-text b { color: var(--accent); }
+  .csv-preview b { color: var(--accent); }
+
+  /* Step number circles */
+  .step-num { background: var(--accent); color: #080c12 !important; }
+
+  /* ── POSITION GROUPING ───────────────────────────────────────── */
+  tr.position-row { cursor: pointer; }
+  tr.position-row:hover td { background: rgba(0,229,160,0.05) !important; }
+  tr.position-row td:first-child { padding-left: 14px; }
+  .position-toggle {
+    display: inline-block;
+    width: 16px; height: 16px;
+    background: rgba(0,229,160,0.15);
+    border: 1px solid rgba(0,229,160,0.3);
+    border-radius: 3px;
+    text-align: center;
+    line-height: 14px;
+    font-size: 10px;
+    color: var(--accent);
+    margin-right: 6px;
+    font-weight: 700;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  tr.partial-row td {
+    background: rgba(0,184,255,0.03) !important;
+    border-bottom: 1px solid rgba(30,40,64,0.8) !important;
+  }
+  tr.partial-row td:first-child {
+    padding-left: 36px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+  tr.partial-row:hover td { background: rgba(0,184,255,0.06) !important; }
+  .partial-label {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 1px;
+  }
+  .avg-badge {
+    display: inline-block;
+    font-size: 9px;
+    padding: 2px 6px;
+    background: rgba(0,229,160,0.1);
+    border: 1px solid rgba(0,229,160,0.2);
+    border-radius: 3px;
+    color: var(--accent);
+    margin-left: 6px;
+    letter-spacing: 1px;
+    font-family: 'DM Mono', monospace;
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ SETUP SCREEN ══════════════════════════════════════════════ -->
+<div id="setup-screen">
+  <div class="setup-card">
+    <div class="setup-title" style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:3px;">CHART<span>D</span></div>
+    <div class="setup-sub">Your prop firm trade journal. Import trades via CSV or log them manually. No login required.</div>
+
+    <label>Google Apps Script URL <span style="color:var(--muted)">(optional)</span></label>
+    <input type="text" id="gs-url" placeholder="https://script.google.com/macros/s/..."/>
+
+    <!-- Need help accordion -->
+    <div style="margin-bottom:16px;">
+      <button onclick="toggleHelp()" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:11px 14px;border-radius:8px;font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;text-align:left;display:flex;align-items:center;justify-content:space-between;" id="help-btn">
+        <span>Need help getting set up?</span>
+        <span id="help-arrow" style="transition:transform 0.2s;">▾</span>
+      </button>
+      <div id="help-panel" style="display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;background:var(--bg);padding:16px;">
+        <div class="gs-instructions" style="background:transparent;border:none;padding:0;margin:0;">
+          <b style="color:var(--text)">Step 1 — Get the Google Sheets template</b><br/>
+          <a href="https://docs.google.com/spreadsheets/d/1F2pKKjzf1k63kU_qN28QAARS1hRSAN8Gmy0cLPhq_iQ/edit?usp=sharing" target="_blank" style="color:var(--accent);font-weight:700;">→ Open the Chartd Trading Journal Template</a><br/>
+          File → Make a copy → save to your Google Drive.<br/><br/>
+
+          <b style="color:var(--text)">Step 2 — Add the Apps Script</b><br/>
+          Inside your copy: Extensions → Apps Script → delete existing code → paste this:<br/>
+          <code style="display:block;margin:8px 0;padding:10px;background:var(--surface2);border-radius:6px;color:var(--accent);font-size:10px;line-height:2;border:1px solid var(--border);">
+function doPost(e) {<br/>
+&nbsp;&nbsp;const sheet = SpreadsheetApp.getActiveSpreadsheet()<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;.getSheetByName("Trade Database");<br/>
+&nbsp;&nbsp;const d = JSON.parse(e.postData.contents);<br/>
+&nbsp;&nbsp;if (d.action === "appendRow") sheet.appendRow(d.row);<br/>
+&nbsp;&nbsp;return ContentService.createTextOutput("ok");<br/>
+}<br/>
+function doGet(e) {<br/>
+&nbsp;&nbsp;return ContentService.createTextOutput("alive");<br/>
+}
+          </code>
+
+          <b style="color:var(--text)">Step 3 — Deploy as Web App</b><br/>
+          Deploy → New Deployment → Web App<br/>
+          Execute as: <b style="color:var(--accent)">Me</b> &nbsp;|&nbsp; Who has access: <b style="color:var(--accent)">Anyone</b><br/>
+          Copy the Web App URL → paste it in the field above.
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="launch()">LAUNCH JOURNAL →</button>
+  </div>
+</div>
+
+<!-- ══ MAIN APP ═══════════════════════════════════════════════════ -->
+<header>
+  <div class="logo">
+    <div class="logo-text" style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:var(--text)">CHART<span style="color:var(--accent)">D</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;margin-left:10px;margin-top:4px;">TRADE JOURNAL</div>
+  </div>
+  <div class="header-right">
+    <div class="status-pill">
+      <div class="status-dot" id="tv-dot"></div>
+      <span id="tv-status-text">Ready</span>
+    </div>
+    <div class="status-pill">
+      <div class="status-dot" id="gs-dot"></div>
+      <span id="gs-status-text">Sheet: Off</span>
+    </div>
+    <button class="btn btn-secondary" style="width:auto;padding:7px 14px;" onclick="showSetup()">⚙ Settings</button>
+  </div>
+</header>
+
+<div class="app">
+  <!-- ── SIDEBAR ─────────────────────────────────────────────── -->
+  <aside class="sidebar">
+
+    <!-- Activity log -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Activity Log</div>
+      <div class="sync-log" id="sync-log">
+        <div class="log-entry"><span class="log-time">--:--</span><span class="log-info">Ready — import a CSV to begin</span></div>
+      </div>
+    </div>
+
+    <!-- Trade selector for manual notes -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Add Notes to Trade</div>
+      <label>Select Trade</label>
+      <select id="note-trade-select">
+        <option value="">-- select a trade --</option>
+      </select>
+
+      <label>Setup / Trigger</label>
+      <input type="text" id="note-setup" placeholder="e.g. VWAP reclaim + EMA cross"/>
+
+      <label>Rules Followed?</label>
+      <select id="note-rules">
+        <option value="Yes">✅ Yes</option>
+        <option value="No">❌ No</option>
+      </select>
+
+      <div class="emotion-row">
+        <div class="emotion-block">
+          <label>Emotion IN</label>
+          <div class="emotion-value" id="emo-in-val">5</div>
+          <input type="range" min="1" max="10" value="5" id="emo-in" oninput="document.getElementById('emo-in-val').textContent=this.value"/>
+        </div>
+        <div class="emotion-block">
+          <label>Emotion OUT</label>
+          <div class="emotion-value" id="emo-out-val">5</div>
+          <input type="range" min="1" max="10" value="5" id="emo-out" oninput="document.getElementById('emo-out-val').textContent=this.value"/>
+        </div>
+      </div>
+
+      <label>What Went Right</label>
+      <textarea id="note-right" placeholder="e.g. Waited for confirmation..."></textarea>
+
+      <label>What Went Wrong</label>
+      <textarea id="note-wrong" placeholder="e.g. Moved stop too early..."></textarea>
+
+      <label>Lesson / Adjustment</label>
+      <textarea id="note-lesson" placeholder="e.g. Next time I will..."></textarea>
+
+      <button class="btn btn-green" onclick="saveNotes()">SAVE NOTES</button>
+    </div>
+
+    <!-- Manual trade entry -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Manual Entry</div>
+      <div class="input-row">
+        <div>
+          <label>Instrument</label>
+          <select id="m-inst">
+            <option>MNQ</option><option>MES</option><option>MCL</option><option>MGC</option>
+          </select>
+        </div>
+        <div>
+          <label>Direction</label>
+          <select id="m-dir">
+            <option>Long</option><option>Short</option>
+          </select>
+        </div>
+      </div>
+      <div class="input-row">
+        <div><label>Entry</label><input type="number" id="m-entry" placeholder="5800.00" step="0.25"/></div>
+        <div><label>Exit</label><input type="number" id="m-exit" placeholder="5820.00" step="0.25"/></div>
+      </div>
+      <div class="input-row">
+        <div><label>Stop <span style="color:var(--muted);font-size:11px;">(optional)</span></label><input type="number" id="m-stop" placeholder="optional" step="0.25"/></div>
+        <div><label>Contracts</label><input type="number" id="m-contracts" placeholder="1" value="1" min="1"/></div>
+      </div>
+      <button class="btn btn-secondary" onclick="addManualTrade()">+ ADD MANUAL TRADE</button>
+    </div>
+
+
+    <!-- CSV Import -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Import from Tradovate CSV</div>
+      <div class="drop-zone" id="drop-zone"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDrop(event)">
+        <input type="file" accept=".csv" onchange="handleFileSelect(event)"/>
+        <div class="drop-icon">📂</div>
+        <div class="drop-text">
+          <b>Drop your Tradovate CSV here</b><br/>
+          or click to browse<br/><br/>
+          Export from: Tradovate Web<br/>
+          → Activity → Fills → Export CSV
+        </div>
+      </div>
+      <div class="csv-preview" id="csv-preview"></div>
+      <button class="btn btn-secondary" onclick="clearTrades()" style="margin-top:4px;">✕ Clear All Trades</button>
+    </div>
+  </aside>
+
+  <!-- ── MAIN AREA ────────────────────────────────────────────── -->
+  <div style="display:flex;flex-direction:column;overflow:hidden;">
+
+    <!-- Stats bar -->
+    <div class="stats-bar">
+      <div class="stat-card" id="card-pnl">
+        <div class="stat-label">Net P&L Today</div>
+        <div class="stat-value neu" id="stat-pnl">$0.00</div>
+        <div class="stat-sub" id="stat-pnl-sub">0 trades</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Win Rate</div>
+        <div class="stat-value neu" id="stat-wr">—</div>
+        <div class="stat-sub" id="stat-wr-sub">W / L</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Avg R</div>
+        <div class="stat-value neu" id="stat-r">—</div>
+        <div class="stat-sub">per trade</div>
+      </div>
+      <div class="stat-card accent">
+        <div class="stat-label">Compliance</div>
+        <div class="stat-value acc" id="stat-comp">—</div>
+        <div class="stat-sub" id="stat-comp-sub">rules followed</div>
+      </div>
+      <div class="stat-card" id="card-limit">
+        <div class="stat-label">Daily Limit Used</div>
+        <div class="stat-value neu" id="stat-limit">$0</div>
+        <div class="daily-limit-bar">
+          <div class="daily-limit-fill" id="limit-fill" style="width:0%;background:var(--green)"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:8px;">
+          <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">LIMIT $</span>
+          <input type="number" id="max-loss-inline" value="1000" min="0" step="50"
+            style="width:80px;padding:4px 8px;font-size:12px;margin:0;border-radius:5px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;"
+            oninput="state.maxLoss=parseFloat(this.value)||1000;updateStats();"
+            title="Set your daily max loss limit"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trade table -->
+    <div class="main">
+      <div class="section-header">
+        <div class="section-title">Today's Trades</div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <button class="btn btn-primary" style="width:auto;padding:11px 26px;font-size:14px;font-weight:700;letter-spacing:1px;background:var(--accent);color:#080c12;box-shadow:0 0 20px rgba(0,229,160,0.3);" onclick="pushAllToSheet()">↑ PUSH TO SHEET</button>
+          <button class="btn btn-secondary" style="width:auto;padding:11px 18px;font-size:12px;" onclick="exportCSV()">↓ Export CSV</button>
+          <button class="btn btn-secondary" style="width:auto;padding:11px 14px;font-size:12px;color:var(--red);border-color:rgba(255,69,96,0.3);" onclick="clearTrades()">✕</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Instrument</th>
+              <th>Direction</th>
+              <th>Contracts</th>
+              <th>Entry</th>
+              <th>Exit</th>
+              <th>Stop Dist</th>
+              <th>Gross P&L</th>
+              <th>Commission</th>
+              <th>Net P&L</th>
+              <th>R</th>
+              <th>Rules</th>
+              <th>Setup</th>
+            </tr>
+          </thead>
+          <tbody id="trade-tbody">
+            <tr>
+              <td colspan="13">
+                <div class="empty-state">
+                  <div class="empty-icon">📋</div>
+                  <div class="empty-text">
+                    No trades yet.<br/>
+                    Connect to Tradovate and start sync to auto-import fills,<br/>
+                    or add a trade manually using the sidebar.
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- End of session banner -->
+      <div id="export-banner" style="display:none;background:linear-gradient(135deg,rgba(0,229,160,0.08),rgba(0,184,255,0.05));border:1px solid var(--accent);border-radius:12px;padding:24px 28px;margin-bottom:24px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--blue));"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;">
+            <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:3px;margin-bottom:8px;">⚡ SESSION COMPLETE</div>
+            <div style="font-size:17px;color:var(--text);font-weight:700;margin-bottom:6px;">Don't forget to push your trades to the sheet.</div>
+            <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);line-height:2;">
+              Tap <b style="color:var(--accent)">PUSH TO SHEET</b> to save today's trades to your Chartd database permanently.<br/>
+              <span style="color:var(--muted);font-size:11px;">No sheet connected? Use <b style="color:var(--text)">Export CSV</b> as a backup instead.</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;min-width:160px;">
+            <button class="btn btn-primary" style="width:100%;padding:14px 24px;font-size:14px;font-weight:700;letter-spacing:1px;background:var(--accent);color:#080c12;box-shadow:0 0 24px rgba(0,229,160,0.35);" onclick="pushAllToSheet()">↑ PUSH TO SHEET</button>
+            <button class="btn btn-secondary" style="width:100%;padding:10px 16px;font-size:12px;opacity:0.7;" onclick="exportCSV()">↓ Export CSV backup</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session notes -->
+      <div class="note-panel">
+        <div class="note-panel-title">Session Notes</div>
+        <div class="input-row" style="margin-bottom:12px;">
+          <div>
+            <label>Market Bias Today</label>
+            <select id="sess-bias">
+              <option value="">Select...</option>
+              <option>Bullish</option><option>Bearish</option><option>Neutral / Choppy</option>
+            </select>
+          </div>
+          <div>
+            <label>Session Quality (1-10)</label>
+            <input type="number" id="sess-quality" min="1" max="10" placeholder="7"/>
+          </div>
+        </div>
+        <label>Pre-Market Notes</label>
+        <textarea id="sess-premarket" placeholder="Key levels, bias, news events to watch..." style="min-height:50px;"></textarea>
+        <label>End of Session Reflection</label>
+        <textarea id="sess-reflection" placeholder="What did the market do? What worked? What didn't?" style="min-height:50px;"></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══ STATE ═════════════════════════════════════════════════════════
+const state = {
+  trades: [],
+  gsUrl: '',
+  maxLoss: 1000,
+  commission: 0.78, // per contract round trip
+  pointValues: { MNQ: 2, MES: 5, MCL: 100, MGC: 10 },
+  instrumentMap: {
+    'MNQM5': 'MNQ', 'MESM5': 'MES', 'MCLM5': 'MCL', 'MGCM5': 'MGC',
+    'MNQH5': 'MNQ', 'MESH5': 'MES', 'MCLH5': 'MCL', 'MGCH5': 'MGC',
+    'MNQU5': 'MNQ', 'MESU5': 'MES', 'MCLU5': 'MCL', 'MGCU5': 'MGC',
+    'MNQ': 'MNQ', 'MES': 'MES', 'MCL': 'MCL', 'MGC': 'MGC',
+  }
+};
+
+// ══ SETUP / AUTH ══════════════════════════════════════════════
+function showSetup() {
+  // Repopulate URL field with current value
+  document.getElementById('gs-url').value = state.gsUrl || '';
+  document.getElementById('setup-screen').style.display = 'flex';
+}
+
+function launch() {
+  state.gsUrl   = document.getElementById('gs-url').value.trim();
+  document.getElementById('setup-screen').style.display = 'none';
+  if (state.gsUrl) setStatus('gs', 'connected', 'Sheet: On');
+  setStatus('tv', 'connected', 'Ready');
+  addLog('Chartd Journal ready — import a CSV or add trades manually', 'ok');
+  toast('Welcome to Chartd Journal!', 'success');
+}
+
+// ══ SYNC ══════════════════════════════════════════════════════
+// (Live API sync removed — using CSV import for prop firm accounts)
+
+function mapInstrument(sym) {
+  const upper = sym.toUpperCase();
+  for (const [key, val] of Object.entries(state.instrumentMap)) {
+    if (upper.includes(key)) return val;
+  }
+  // fallback: first 3 chars
+  return upper.substring(0, 3);
+}
+
+// ══ TRADE MANAGEMENT ══════════════════════════════════════════════
+function addTrade(t) {
+  const pv = state.pointValues[t.inst] || 1;
+  const dir = t.direction === 'Long' ? 1 : -1;
+  const gross = (t.exit - t.entry) * dir * pv * t.contracts;
+  const comm  = t.contracts * state.commission;
+  const net   = gross - comm;
+  const stopDist = (t.stop != null && t.stop !== 0) ? Math.abs(t.entry - t.stop) : 0;
+  const rVal  = stopDist > 0 ? net / (stopDist * pv * t.contracts) : null;
+
+  const trade = {
+    ...t, gross, comm, net, stopDist, r: rVal,
+    time: t.time || new Date(),
+    rules: '', setup: '', emoIn: 5, emoOut: 5,
+    right: '', wrong: '', lesson: ''
+  };
+
+  state.trades.unshift(trade);
+  renderTable();
+  updateStats();
+  updateTradeSelect();
+
+  if (state.gsUrl) pushToSheet(trade);
+  addLog(`Trade logged: ${t.inst} ${t.direction} → Net $${net.toFixed(2)}`, 'ok');
+  toast(`${t.inst} ${t.direction} — Net ${net >= 0 ? '+' : ''}$${net.toFixed(2)}`, net >= 0 ? 'success' : 'error');
+}
+
+function addPosition(p) {
+  const pv  = state.pointValues[p.inst] || 1;
+  const dir = p.direction === 'Long' ? 1 : -1;
+
+  // Calculate each partial
+  const partials = p.partials.map((part, i) => {
+    const gross = (part.exitPrice - part.entryPrice) * dir * pv * part.contracts;
+    const comm  = part.contracts * state.commission;
+    const net   = gross - comm;
+    return { ...part, gross, comm, net, r: null, id: p.id + '-partial-' + i };
+  });
+
+  // Position totals
+  const totalGross = partials.reduce((s, x) => s + x.gross, 0);
+  const totalComm  = partials.reduce((s, x) => s + x.comm,  0);
+  const totalNet   = partials.reduce((s, x) => s + x.net,   0);
+  const stopDist   = (p.stop != null && p.stop !== 0) ? Math.abs(p.avgEntry - p.stop) : 0;
+  const rVal       = stopDist > 0 ? totalNet / (stopDist * pv * p.totalContracts) : null;
+
+  // Attach R to each partial based on position stop
+  partials.forEach(part => {
+    if (stopDist > 0) {
+      part.r = part.net / (stopDist * pv * part.contracts);
+    }
+  });
+
+  const position = {
+    id: p.id,
+    inst: p.inst,
+    direction: p.direction,
+    contracts: p.totalContracts,
+    avgEntry: p.avgEntry,
+    avgExit: p.avgExit,
+    entry: p.avgEntry,
+    exit: p.avgExit,
+    stop: p.stop || 0,
+    stopDist,
+    gross: totalGross,
+    comm: totalComm,
+    net: totalNet,
+    r: rVal,
+    time: p.exitTime,
+    entryTime: p.entryTime,
+    partials: partials.length > 1 ? partials : [],  // only store if actually scaled
+    isPosition: true,
+    expanded: false,
+    rules: '', setup: '', emoIn: 5, emoOut: 5,
+    right: '', wrong: '', lesson: '',
+    source: p.source
+  };
+
+  state.trades.unshift(position);
+  renderTable();
+  updateStats();
+  updateTradeSelect();
+
+  if (state.gsUrl) pushToSheet(position);
+  const sign = totalNet >= 0 ? '+' : '';
+  addLog(`${p.inst} ${p.direction} ${p.totalContracts}x${partials.length > 1 ? ' ('+partials.length+' partials)' : ''} → Net $${totalNet.toFixed(2)}`, 'ok');
+  toast(`${p.inst} ${p.direction} — Net ${sign}$${totalNet.toFixed(2)}`, totalNet >= 0 ? 'success' : 'error');
+}
+
+function togglePosition(id) {
+  const pos = state.trades.find(t => t.id === id);
+  if (pos) { pos.expanded = !pos.expanded; renderTable(); }
+}
+
+function addManualTrade() {
+  const inst = document.getElementById('m-inst').value;
+  const dir  = document.getElementById('m-dir').value;
+  const entry = parseFloat(document.getElementById('m-entry').value);
+  const exit  = parseFloat(document.getElementById('m-exit').value);
+  const stopRaw = document.getElementById('m-stop').value.trim();
+  const stop = stopRaw ? parseFloat(stopRaw) : null;
+  const contracts = parseInt(document.getElementById('m-contracts').value) || 1;
+
+  if (!entry || !exit) { toast('Enter entry and exit prices', 'error'); return; }
+
+  addTrade({ id: 'manual-' + Date.now(), inst, direction: dir, contracts, entry, exit, stop, source: 'manual' });
+  document.getElementById('m-entry').value = '';
+  document.getElementById('m-exit').value  = '';
+  document.getElementById('m-stop').value  = '';
+}
+
+function saveNotes() {
+  const sel = document.getElementById('note-trade-select').value;
+  if (!sel) { toast('Select a trade first', 'error'); return; }
+
+  const trade = state.trades.find(t => t.id === sel);
+  if (!trade) return;
+
+  trade.setup  = document.getElementById('note-setup').value;
+  trade.rules  = document.getElementById('note-rules').value;
+  trade.emoIn  = parseInt(document.getElementById('emo-in').value);
+  trade.emoOut = parseInt(document.getElementById('emo-out').value);
+  trade.right  = document.getElementById('note-right').value;
+  trade.wrong  = document.getElementById('note-wrong').value;
+  trade.lesson = document.getElementById('note-lesson').value;
+
+  renderTable();
+  if (state.gsUrl) pushToSheet(trade);
+  toast('Notes saved!', 'success');
+}
+
+function clearTrades() {
+  if (!confirm('Clear all trades from this session?')) return;
+  state.trades = [];
+  renderTable();
+  updateStats();
+  updateTradeSelect();
+}
+
+// ══ RENDER ════════════════════════════════════════════════════════
+function renderTable() {
+  const tbody = document.getElementById('trade-tbody');
+  const banner = document.getElementById('export-banner');
+  if (state.trades.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="13"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No trades yet.<br/>Import a CSV from Tradovate or add a trade manually.</div></div></td></tr>`;
+    if (banner) banner.style.display = 'none';
+    return;
+  }
+  if (banner) banner.style.display = 'block';
+
+  const rows = [];
+
+  state.trades.forEach(t => {
+    const timeStr  = t.time.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+    const entryStr = t.entryTime ? t.entryTime.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' }) : timeStr;
+    const netClass = t.net > 0 ? 'pnl-pos' : t.net < 0 ? 'pnl-neg' : 'pnl-neu';
+    const rStr     = t.r != null ? (t.r >= 0 ? '+' : '') + t.r.toFixed(2) + 'R' : '—';
+    const rClass   = t.r > 0 ? 'pnl-pos' : t.r < 0 ? 'pnl-neg' : 'pnl-neu';
+    const rulesHtml = t.rules
+      ? `<span class="compliance-badge ${t.rules === 'Yes' ? 'compliance-yes' : 'compliance-no'}">${t.rules}</span>`
+      : '<span style="color:var(--muted);font-size:11px;">—</span>';
+    const hasPartials = t.partials && t.partials.length > 1;
+    const toggle = hasPartials
+      ? `<span class="position-toggle" onclick="event.stopPropagation();togglePosition('${t.id}')">${t.expanded ? '−' : '+'}</span>`
+      : '';
+    const avgBadge = hasPartials ? `<span class="avg-badge">AVG</span>` : '';
+    const entryDisplay = hasPartials ? t.avgEntry.toFixed(2) + avgBadge : t.entry.toFixed(2);
+    const exitDisplay  = hasPartials ? t.avgExit.toFixed(2)  + avgBadge : t.exit.toFixed(2);
+    const timeDisplay  = hasPartials ? `${entryStr}–${timeStr}` : timeStr;
+
+    rows.push(`<tr class="position-row" onclick="${hasPartials ? `togglePosition('${t.id}')` : ''}">
+      <td style="color:var(--muted);font-size:12px;">${toggle}${timeDisplay}</td>
+      <td><span class="tag tag-inst">${t.inst}</span></td>
+      <td><span class="tag ${t.direction === 'Long' ? 'tag-long' : 'tag-short'}">${t.direction}</span></td>
+      <td style="text-align:center;font-weight:${hasPartials?'700':'400'}">${t.contracts}</td>
+      <td>${entryDisplay}</td>
+      <td>${exitDisplay}</td>
+      <td style="color:var(--muted)">${t.stopDist > 0 ? t.stopDist.toFixed(2) + ' pts' : '—'}</td>
+      <td class="${t.gross >= 0 ? 'pnl-pos' : 'pnl-neg'}">$${t.gross.toFixed(2)}</td>
+      <td style="color:var(--muted)">-$${t.comm.toFixed(2)}</td>
+      <td class="${netClass}" style="font-size:14px;">$${t.net.toFixed(2)}</td>
+      <td class="${rClass}">${rStr}</td>
+      <td>${rulesHtml}</td>
+      <td style="color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;">${t.setup || '—'}</td>
+    </tr>`);
+
+    // Partial rows — shown when expanded
+    if (hasPartials && t.expanded) {
+      t.partials.forEach((part, i) => {
+        const pTimeStr  = part.exitTime ? part.exitTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
+        const pNetClass = part.net > 0 ? 'pnl-pos' : part.net < 0 ? 'pnl-neg' : 'pnl-neu';
+        const pRStr     = part.r != null ? (part.r >= 0 ? '+' : '') + part.r.toFixed(2) + 'R' : '—';
+        const pRClass   = part.r > 0 ? 'pnl-pos' : part.r < 0 ? 'pnl-neg' : 'pnl-neu';
+        rows.push(`<tr class="partial-row">
+          <td style="color:var(--muted);font-size:11px;">↳ exit ${i+1} &nbsp;${pTimeStr}</td>
+          <td><span class="tag tag-inst" style="opacity:0.5">${t.inst}</span></td>
+          <td><span class="partial-label">${t.direction}</span></td>
+          <td style="text-align:center;color:var(--muted)">${part.contracts}</td>
+          <td style="color:var(--muted)">${part.entryPrice.toFixed(2)}</td>
+          <td>${part.exitPrice.toFixed(2)}</td>
+          <td>—</td>
+          <td class="${part.gross >= 0 ? 'pnl-pos' : 'pnl-neg'}" style="opacity:0.85">$${part.gross.toFixed(2)}</td>
+          <td style="color:var(--muted)">-$${part.comm.toFixed(2)}</td>
+          <td class="${pNetClass}">$${part.net.toFixed(2)}</td>
+          <td class="${pRClass}">${pRStr}</td>
+          <td>—</td>
+          <td>—</td>
+        </tr>`);
+      });
+    }
+  });
+
+  tbody.innerHTML = rows.join('');
+}
+
+function updateStats() {
+  const trades = state.trades;
+  const totalNet = trades.reduce((s, t) => s + t.net, 0);
+  const wins  = trades.filter(t => t.net > 0).length;
+  const losses = trades.filter(t => t.net < 0).length;
+  const wr = trades.length > 0 ? (wins / trades.length * 100).toFixed(0) : null;
+  const rsWithVal = trades.filter(t => t.r != null);
+  const avgR = rsWithVal.length > 0 ? (rsWithVal.reduce((s,t) => s + t.r, 0) / rsWithVal.length) : null;
+  const ruledTrades = trades.filter(t => t.rules !== '');
+  const compRate = ruledTrades.length > 0
+    ? (ruledTrades.filter(t => t.rules === 'Yes').length / ruledTrades.length * 100).toFixed(0)
+    : null;
+
+  // P&L
+  const pnlEl = document.getElementById('stat-pnl');
+  pnlEl.textContent = (totalNet >= 0 ? '+' : '') + '$' + Math.abs(totalNet).toFixed(2);
+  pnlEl.className = 'stat-value ' + (totalNet > 0 ? 'pos' : totalNet < 0 ? 'neg' : 'neu');
+  document.getElementById('stat-pnl-sub').textContent = trades.length + ' trade' + (trades.length !== 1 ? 's' : '');
+  document.getElementById('card-pnl').className = 'stat-card ' + (totalNet > 0 ? 'positive' : totalNet < 0 ? 'negative' : '');
+
+  // Win rate
+  const wrEl = document.getElementById('stat-wr');
+  wrEl.textContent = wr != null ? wr + '%' : '—';
+  wrEl.className = 'stat-value ' + (wr >= 50 ? 'pos' : wr < 50 ? 'neg' : 'neu');
+  document.getElementById('stat-wr-sub').textContent = `${wins}W / ${losses}L`;
+
+  // Avg R
+  const rEl = document.getElementById('stat-r');
+  rEl.textContent = avgR != null ? (avgR >= 0 ? '+' : '') + avgR.toFixed(2) + 'R' : '—';
+  rEl.className = 'stat-value ' + (avgR > 0 ? 'pos' : avgR < 0 ? 'neg' : 'neu');
+
+  // Compliance
+  const compEl = document.getElementById('stat-comp');
+  compEl.textContent = compRate != null ? compRate + '%' : '—';
+  document.getElementById('stat-comp-sub').textContent = ruledTrades.length + ' tagged';
+
+  // Daily limit
+  const lossToday = Math.abs(Math.min(0, totalNet));
+  const pct = Math.min(100, (lossToday / state.maxLoss) * 100);
+  document.getElementById('stat-limit').textContent = '$' + lossToday.toFixed(0);
+  const fill = document.getElementById('limit-fill');
+  fill.style.width = pct + '%';
+  fill.style.background = pct < 50 ? 'var(--green)' : pct < 80 ? 'var(--yellow)' : 'var(--red)';
+
+  if (pct >= 100) {
+    toast('⚠️ DAILY MAX LOSS REACHED — Stop trading!', 'error');
+    document.getElementById('card-limit').style.borderColor = 'var(--red)';
+  }
+}
+
+function updateTradeSelect() {
+  const sel = document.getElementById('note-trade-select');
+  sel.innerHTML = '<option value="">-- select a trade --</option>' +
+    state.trades.map(t => {
+      const timeStr = t.time.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+      const netStr = (t.net >= 0 ? '+' : '') + '$' + t.net.toFixed(2);
+      return `<option value="${t.id}">${timeStr} ${t.inst} ${t.direction} ${netStr}</option>`;
+    }).join('');
+}
+
+// ══ GOOGLE SHEET SYNC ══════════════════════════════════════════════
+async function pushToSheet(trade) {
+  if (!state.gsUrl) return;
+  const timeStr = trade.time.toLocaleDateString('en-US') + ' ' +
+    trade.time.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
+  const session = getSession(trade.time);
+
+  // SheetDB format — keys must match your sheet column headers exactly
+  const record = {
+    "Date":             timeStr,
+    "Session":          session,
+    "Instrument":       trade.inst,
+    "Direction":        trade.direction,
+    "Contracts":        trade.contracts,
+    "Entry Price":      trade.entry,
+    "Exit Price":       trade.exit,
+    "Stop Price":       trade.stop || '',
+    "Rules Followed":   trade.rules  || '',
+    "Emotion In":       trade.emoIn  || '',
+    "Emotion Out":      trade.emoOut || '',
+    "Setup / Trigger":  trade.setup  || '',
+    "What Went Right":  trade.right  || '',
+    "What Went Wrong":  trade.wrong  || '',
+    "Lesson":           trade.lesson || ''
+  };
+
+  try {
+    const res = await fetch(state.gsUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ action: 'appendRow', row: Object.values(record) })
+    });
+    if (res.ok) {
+      addLog(`Sheet ✓ — ${trade.inst} ${trade.direction}`, 'ok');
+      setStatus('gs', 'connected', 'Sheet: Synced');
+    } else {
+      const txt = await res.text();
+      addLog(`Sheet error ${res.status}: ${txt.substring(0,60)}`, 'err');
+      setStatus('gs', 'error', 'Sheet: Error');
+    }
+  } catch(e) {
+    addLog('Sheet push failed: ' + e.message, 'err');
+    setStatus('gs', 'error', 'Sheet: Error');
+  }
+}
+
+async function pushAllToSheet() {
+  if (!state.gsUrl) { toast('No Apps Script URL configured — add it in Settings', 'error'); return; }
+  if (state.trades.length === 0) { toast('No trades to push', 'error'); return; }
+  toast(`Pushing ${state.trades.length} trades...`, 'info');
+  let ok = 0;
+  for (const trade of state.trades) {
+    await pushToSheet(trade);
+    await new Promise(r => setTimeout(r, 300));
+    ok++;
+  }
+  toast(`Done — ${ok} trades pushed to Google Sheet`, 'success');
+}
+
+function getSession(dt) {
+  const h = dt.getHours(), m = dt.getMinutes();
+  const mins = h * 60 + m;
+  if (mins < 390) return 'Pre-Market';
+  if (mins < 540) return 'NY Open';
+  if (mins < 780) return 'NY Midday';
+  return 'NY Afternoon';
+}
+
+// ══ EXPORT ════════════════════════════════════════════════════════
+function exportCSV() {
+  if (state.trades.length === 0) { toast('No trades to export', 'error'); return; }
+  if (typeof XLSX === 'undefined') { toast('Export library not loaded', 'error'); return; }
+
+  const C = { bg:'080C12', surface:'0F1520', surface2:'141C2A', accent:'00E5A0',
+               blue:'00B8FF', red:'FF4560', muted:'8B9AB8', white:'E8EDF5',
+               greenBg:'0D2B1F', redBg:'2B0D15', border:'1E2840' };
+
+  const hdrs = ['Date','Session','Instrument','Direction','Contracts',
+    'Entry Price','Exit Price','Stop Price','Stop Dist (pts)',
+    'Gross P&L ($)','Commission ($)','Net P&L ($)','R',
+    'Rules Followed','Emotion In','Emotion Out',
+    'Setup / Trigger','What Went Right','What Went Wrong','Lesson'];
+
+  const dataRows = state.trades.map(t => ({
+    'Date': t.time.toLocaleDateString('en-US'),
+    'Session': getSession(t.time),
+    'Instrument': t.inst, 'Direction': t.direction, 'Contracts': t.contracts,
+    'Entry Price': t.entry, 'Exit Price': t.exit, 'Stop Price': t.stop || '',
+    'Stop Dist (pts)': t.stopDist > 0 ? parseFloat(t.stopDist.toFixed(2)) : '',
+    'Gross P&L ($)': parseFloat(t.gross.toFixed(2)),
+    'Commission ($)': parseFloat(t.comm.toFixed(2)),
+    'Net P&L ($)': parseFloat(t.net.toFixed(2)),
+    'R': t.r != null ? parseFloat(t.r.toFixed(2)) : '',
+    'Rules Followed': t.rules||'', 'Emotion In': t.emoIn||'', 'Emotion Out': t.emoOut||'',
+    'Setup / Trigger': t.setup||'', 'What Went Right': t.right||'',
+    'What Went Wrong': t.wrong||'', 'Lesson': t.lesson||''
+  }));
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(dataRows, { header: hdrs });
+
+  ws['!cols'] = [{wch:12},{wch:13},{wch:11},{wch:10},{wch:10},
+    {wch:12},{wch:12},{wch:12},{wch:14},{wch:13},{wch:14},{wch:13},{wch:8},
+    {wch:14},{wch:11},{wch:12},{wch:22},{wch:22},{wch:22},{wch:22}];
+
+  function cs(bg, color, bold, center, sz) {
+    return {
+      font: { name:'Arial', sz: sz||10, bold:!!bold, color:{ rgb: color||C.white } },
+      fill: { patternType:'solid', fgColor:{ rgb: bg||C.surface } },
+      alignment: { horizontal: center?'center':'left', vertical:'center' },
+      border: { top:{style:'thin',color:{rgb:C.border}}, bottom:{style:'thin',color:{rgb:C.border}},
+                left:{style:'thin',color:{rgb:C.border}}, right:{style:'thin',color:{rgb:C.border}} }
+    };
+  }
+
+  const range = XLSX.utils.decode_range(ws['!ref']);
+
+  for (let col = range.s.c; col <= range.e.c; col++) {
+    // Header
+    const hAddr = XLSX.utils.encode_cell({ r:0, c:col });
+    if (!ws[hAddr]) ws[hAddr] = { v: hdrs[col], t:'s' };
+    ws[hAddr].s = cs(C.bg, C.accent, true, true, 9);
+
+    // Data rows
+    for (let row = 1; row <= range.e.r; row++) {
+      const addr = XLSX.utils.encode_cell({ r:row, c:col });
+      if (!ws[addr]) ws[addr] = { v:'', t:'s' };
+      const tr = dataRows[row-1];
+      const alt = row % 2 === 0;
+      let bg = alt ? C.surface2 : C.surface;
+      let color = C.white, bold = false;
+      const center = [4,5,6,7,8,9,10,11,12,14,15].includes(col);
+
+      if (col === 2) { color = C.blue; bold = true; }
+      if (col === 3) { color = ws[addr].v === 'Long' ? C.accent : C.red; bold = true; }
+      if (col === 11) {
+        const v = tr['Net P&L ($)'];
+        if (v > 0) { bg = C.greenBg; color = C.accent; bold = true; }
+        else if (v < 0) { bg = C.redBg; color = C.red; bold = true; }
+      }
+      if (col === 9) {
+        const v = tr['Gross P&L ($)'];
+        color = v > 0 ? C.accent : v < 0 ? C.red : C.white;
+      }
+      if (col === 12) {
+        const v = tr['R'];
+        if (typeof v === 'number' && v > 0) { bg = C.greenBg; color = C.accent; bold = true; }
+        else if (typeof v === 'number' && v < 0) { bg = C.redBg; color = C.red; bold = true; }
+      }
+      if (col === 13) {
+        if (ws[addr].v === 'Yes') { bg = C.greenBg; color = C.accent; bold = true; }
+        else if (ws[addr].v === 'No') { bg = C.redBg; color = C.red; bold = true; }
+      }
+      if ([8,10,14,15].includes(col)) color = C.muted;
+
+      ws[addr].s = cs(bg, color, bold, center, 10);
+      if ([9,10,11].includes(col) && typeof ws[addr].v === 'number') ws[addr].z = '$#,##0.00';
+      if (col === 12 && typeof ws[addr].v === 'number') ws[addr].z = '0.00';
+    }
+  }
+
+  const date = new Date().toISOString().split('T')[0];
+  XLSX.utils.book_append_sheet(wb, ws, 'Trade Database');
+  XLSX.writeFile(wb, 'Chartd_Trades_' + date + '.xlsx');
+  toast('Exported ' + state.trades.length + ' trades as Chartd xlsx', 'success');
+  addLog('xlsx exported: ' + state.trades.length + ' trades (' + date + ')', 'ok');
+}
+
+// ══ UI HELPERS ════════════════════════════════════════════════════
+function setStatus(which, state_, label) {
+  const dot  = document.getElementById(which + '-dot');
+  const text = document.getElementById(which + '-status-text');
+  dot.className = 'status-dot ' + state_;
+  text.textContent = label;
+}
+
+function addLog(msg, type = 'info') {
+  const log = document.getElementById('sync-log');
+  const now = new Date().toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  div.innerHTML = `<span class="log-time">${now}</span><span class="log-${type}">${msg}</span>`;
+  log.prepend(div);
+  while (log.children.length > 30) log.removeChild(log.lastChild);
+}
+
+let toastTimer;
+function toast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', 3500);
+}
+
+
+// ══ CSV IMPORT ════════════════════════════════════════════════════
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.csv')) parseCSVFile(file);
+  else toast('Please drop a .csv file', 'error');
+}
+
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) parseCSVFile(file);
+}
+
+function parseCSVFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    const result = parseTradovateCSV(text);
+    const preview = document.getElementById('csv-preview');
+    if (result.trades === 0) {
+      preview.style.display = 'block';
+      preview.innerHTML = '<span style="color:var(--red)">No completed trades found. Check the CSV format.</span>';
+      toast('No trades found in CSV', 'error');
+      return;
+    }
+    preview.style.display = 'block';
+    preview.innerHTML = `<b>✓ Imported ${result.trades} trades</b> from ${file.name}<br/>Skipped ${result.skipped} rows (open/incomplete)`;
+    toast(`Imported ${result.trades} trades from CSV`, 'success');
+    addLog(`CSV import: ${result.trades} trades loaded`, 'ok');
+  };
+  reader.readAsText(file);
+}
+
+function parseTradovateCSV(text) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
+  if (lines.length < 2) return { trades: 0, skipped: 0 };
+
+  const headers = splitCSVLine(lines[0]).map(h => h.replace(/"/g,'').trim().toLowerCase());
+  const ci = (exact) => { const i = headers.indexOf(exact.toLowerCase()); return i; };
+
+  const iTime  = ci('timestamp');
+  const iBS    = ci('b/s');
+  const iQty   = ci('quantity');
+  const iPrice = ci('price');
+  const iSym   = ci('product');
+
+  addLog(`Cols → time:${iTime} b/s:${iBS} qty:${iQty} price:${iPrice} sym:${iSym}`, 'info');
+
+  if ([iBS, iQty, iPrice, iSym].some(i => i < 0)) {
+    addLog('Column mapping failed — check CSV is a Tradovate Fills export', 'err');
+    return { trades: 0, skipped: 0 };
+  }
+
+  const fills = [];
+  let skipped = 0;
+  lines.slice(1).forEach(line => {
+    if (!line.trim()) return;
+    const cols = splitCSVLine(line);
+    const sym   = cols[iSym]   ? cols[iSym].replace(/"/g,'').trim()            : '';
+    const bs    = cols[iBS]    ? cols[iBS].replace(/"/g,'').trim().toLowerCase(): '';
+    const qty   = parseInt(cols[iQty])    || 0;
+    const price = parseFloat(cols[iPrice]) || 0;
+    const timeRaw = iTime >= 0 && cols[iTime] ? cols[iTime].replace(/"/g,'').trim() : '';
+    const time  = timeRaw ? new Date(timeRaw) : new Date();
+    if (!sym || !bs || !qty || !price) { skipped++; return; }
+    fills.push({ sym, bs, qty, price, time });
+  });
+
+  addLog(`${fills.length} fills parsed, ${skipped} rows skipped`, 'info');
+
+  const bySymbol = {};
+  fills.forEach(f => { if (!bySymbol[f.sym]) bySymbol[f.sym] = []; bySymbol[f.sym].push(f); });
+
+  let positionCount = 0;
+
+  Object.entries(bySymbol).forEach(([sym, symFills]) => {
+    symFills.sort((a, b) => a.time - b.time);
+    let openFills = []; // stack of { bs, qty, price, remaining, time }
+
+    symFills.forEach(fill => {
+      if (openFills.length === 0) {
+        openFills.push({ ...fill, remaining: fill.qty });
+      } else if (openFills[0].bs === fill.bs) {
+        // Scale IN — same direction, add to position
+        openFills.push({ ...fill, remaining: fill.qty });
+      } else {
+        // Closing fill — match against open fills and build partials
+        let closeRem = fill.qty;
+        const partials = [];
+        const entryFillsUsed = [];
+
+        while (openFills.length > 0 && closeRem > 0) {
+          const open = openFills[0];
+          const contracts = Math.min(open.remaining, closeRem);
+          partials.push({ entryPrice: open.price, exitPrice: fill.price, contracts, entryTime: open.time, exitTime: fill.time });
+          entryFillsUsed.push({ price: open.price, contracts });
+          closeRem       -= contracts;
+          open.remaining -= contracts;
+          if (open.remaining <= 0) openFills.shift();
+        }
+
+        if (partials.length > 0) {
+          // Calculate position-level aggregates
+          const totalContracts = partials.reduce((s, p) => s + p.contracts, 0);
+          const avgEntry = partials.reduce((s, p) => s + p.entryPrice * p.contracts, 0) / totalContracts;
+          const avgExit  = partials.reduce((s, p) => s + p.exitPrice  * p.contracts, 0) / totalContracts;
+          const isLong   = openFills.length === 0
+            ? (fills.find(f => f.bs === 'buy') !== undefined && partials[0].entryPrice < partials[0].exitPrice ? true :
+               fills[0].bs === 'buy')
+            : openFills[0].bs !== fill.bs;
+          // Determine direction from the open fills that were consumed
+          const direction = fill.bs === 'sell' ? 'Long' : 'Short'; // closing sell = was long
+
+          const posId = `pos-${sym}-${positionCount}-${fill.time.getTime()}`;
+          addPosition({
+            id: posId,
+            inst: sym,
+            direction,
+            totalContracts,
+            avgEntry,
+            avgExit,
+            entryTime: partials[0].entryTime,
+            exitTime:  fill.time,
+            partials,
+            stop: 0,
+            source: 'csv'
+          });
+          positionCount++;
+        }
+
+        if (closeRem > 0) openFills.push({ ...fill, remaining: closeRem });
+      }
+    });
+  });
+
+  return { trades: positionCount, skipped };
+}
+
+function parseFlatFormat(lines, header) {
+  // Some prop firm exports: one row = one completed trade with entry+exit columns
+  const col = (names) => {
+    for (const n of names) {
+      const i = header.findIndex(h => h.includes(n));
+      if (i >= 0) return i;
+    }
+    return -1;
+  };
+
+  const iSym   = col(['symbol','contract','instrument']);
+  const iDir   = col(['side','direction','action','type']);
+  const iEntry = col(['entry','open price','entry price','avg entry']);
+  const iExit  = col(['exit','close price','exit price','avg exit']);
+  const iQty   = col(['qty','quantity','size','contracts']);
+  const iTime  = col(['time','date','closed at','exit time']);
+
+  let tradeCount = 0, skipped = 0;
+  lines.slice(1).forEach(line => {
+    if (!line.trim()) return;
+    const cols = splitCSVLine(line);
+    const sym   = cols[iSym]   ? cols[iSym].replace(/"/g,'').trim()   : '';
+    const dir   = cols[iDir]   ? cols[iDir].replace(/"/g,'').trim()   : '';
+    const entry = parseFloat(cols[iEntry]) || 0;
+    const exit_ = parseFloat(cols[iExit])  || 0;
+    const qty   = parseInt(cols[iQty])     || 1;
+    const timeStr = iTime >= 0 && cols[iTime] ? cols[iTime].replace(/"/g,'').trim() : '';
+
+    if (!sym || !entry || !exit_) { skipped++; return; }
+
+    const isLong = dir.toLowerCase().includes('long') || dir.toLowerCase().includes('buy');
+    addTrade({
+      id: `csvflat-${tradeCount}-${Date.now()}`,
+      inst: mapInstrument(sym),
+      direction: isLong ? 'Long' : 'Short',
+      contracts: qty,
+      entry, exit: exit_, stop: 0,
+      time: timeStr ? new Date(timeStr) : new Date(),
+      source: 'csv'
+    });
+    tradeCount++;
+  });
+  return { trades: tradeCount, skipped };
+}
+
+function splitCSVLine(line) {
+  // Handle quoted commas
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '"') { inQ = !inQ; }
+    else if (line[i] === ',' && !inQ) { result.push(cur); cur = ''; }
+    else { cur += line[i]; }
+  }
+  result.push(cur);
+  return result;
+}
+
+
+function toggleHelp() {
+  const panel = document.getElementById('help-panel');
+  const arrow = document.getElementById('help-arrow');
+  const btn   = document.getElementById('help-btn');
+  const open  = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  arrow.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+  btn.style.borderRadius = open ? '8px 8px 0 0' : '8px';
+  btn.style.color = open ? 'var(--accent)' : 'var(--muted)';
+}
+
+// ══ INIT ══════════════════════════════════════════════════════════
+document.getElementById('setup-screen').style.display = 'flex';
+</script>
+</body>
+</html>
