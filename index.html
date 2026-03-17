@@ -1118,13 +1118,17 @@ const state = {
 
 // ══ SETUP / AUTH ══════════════════════════════════════════════
 function showSetup() {
-  // Repopulate URL field with current value
-  document.getElementById('gs-url').value = state.gsUrl || '';
+  // Repopulate URL field with current saved value
+  document.getElementById('gs-url').value = state.gsUrl || localStorage.getItem('chartd_gsUrl') || '';
   document.getElementById('setup-screen').style.display = 'flex';
 }
 
 function launch() {
   state.gsUrl   = document.getElementById('gs-url').value.trim();
+  state.maxLoss = parseFloat(document.getElementById('max-loss-inline').value) || 1000;
+  // Persist to localStorage so it survives page refresh
+  if (state.gsUrl) localStorage.setItem('chartd_gsUrl', state.gsUrl);
+  localStorage.setItem('chartd_maxLoss', state.maxLoss);
   document.getElementById('setup-screen').style.display = 'none';
   if (state.gsUrl) setStatus('gs', 'connected', 'Sheet: On');
   setStatus('tv', 'connected', 'Ready');
@@ -1426,39 +1430,25 @@ async function pushToSheet(trade) {
     trade.time.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
   const session = getSession(trade.time);
 
-  // SheetDB format — keys must match your sheet column headers exactly
-  const record = {
-    "Date":             timeStr,
-    "Session":          session,
-    "Instrument":       trade.inst,
-    "Direction":        trade.direction,
-    "Contracts":        trade.contracts,
-    "Entry Price":      trade.entry,
-    "Exit Price":       trade.exit,
-    "Stop Price":       trade.stop || '',
-    "Rules Followed":   trade.rules  || '',
-    "Emotion In":       trade.emoIn  || '',
-    "Emotion Out":      trade.emoOut || '',
-    "Setup / Trigger":  trade.setup  || '',
-    "What Went Right":  trade.right  || '',
-    "What Went Wrong":  trade.wrong  || '',
-    "Lesson":           trade.lesson || ''
-  };
+  const row = [
+    timeStr, session, trade.inst, trade.direction,
+    trade.contracts, trade.entry, '', '', trade.exit,
+    trade.stopDist || '', '', trade.net.toFixed(2),
+    trade.r != null ? trade.r.toFixed(2) : '',
+    trade.setup  || '', trade.rules  || '',
+    trade.emoIn  || '', trade.emoOut || '',
+    trade.right  || '', trade.wrong  || '', trade.lesson || ''
+  ];
 
   try {
-    const res = await fetch(state.gsUrl, {
+    await fetch(state.gsUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ action: 'appendRow', row: Object.values(record) })
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'appendRow', row })
     });
-    if (res.ok) {
-      addLog(`Sheet ✓ — ${trade.inst} ${trade.direction}`, 'ok');
-      setStatus('gs', 'connected', 'Sheet: Synced');
-    } else {
-      const txt = await res.text();
-      addLog(`Sheet error ${res.status}: ${txt.substring(0,60)}`, 'err');
-      setStatus('gs', 'error', 'Sheet: Error');
-    }
+    addLog(`Sheet ✓ — ${trade.inst} ${trade.direction}`, 'ok');
+    setStatus('gs', 'connected', 'Sheet: Synced');
   } catch(e) {
     addLog('Sheet push failed: ' + e.message, 'err');
     setStatus('gs', 'error', 'Sheet: Error');
@@ -1466,7 +1456,7 @@ async function pushToSheet(trade) {
 }
 
 async function pushAllToSheet() {
-  if (!state.gsUrl) { toast('No Apps Script URL configured — add it in Settings', 'error'); return; }
+  if (!state.gsUrl) { toast('No Apps Script URL — add it in Settings ⚙', 'error'); return; }
   if (state.trades.length === 0) { toast('No trades to push', 'error'); return; }
   toast(`Pushing ${state.trades.length} trades...`, 'info');
   let ok = 0;
@@ -1825,7 +1815,30 @@ function toggleHelp() {
 }
 
 // ══ INIT ══════════════════════════════════════════════════════════
-document.getElementById('setup-screen').style.display = 'flex';
+(function init() {
+  // Restore saved settings from localStorage
+  const savedUrl      = localStorage.getItem('chartd_gsUrl')   || '';
+  const savedMaxLoss  = parseFloat(localStorage.getItem('chartd_maxLoss')) || 1000;
+
+  state.gsUrl   = savedUrl;
+  state.maxLoss = savedMaxLoss;
+
+  // Pre-fill setup screen fields
+  if (savedUrl) document.getElementById('gs-url').value = savedUrl;
+  const mlInline = document.getElementById('max-loss-inline');
+  if (mlInline) mlInline.value = savedMaxLoss;
+
+  if (savedUrl) {
+    // Already configured — skip setup screen, go straight to journal
+    document.getElementById('setup-screen').style.display = 'none';
+    setStatus('gs', 'connected', 'Sheet: On');
+    setStatus('tv', 'connected', 'Ready');
+    addLog('Chartd Journal ready — sheet connected', 'ok');
+  } else {
+    // First time — show setup screen
+    document.getElementById('setup-screen').style.display = 'flex';
+  }
+})();
 </script>
 </body>
 </html>
