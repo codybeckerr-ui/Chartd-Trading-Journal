@@ -1430,14 +1430,33 @@ async function pushToSheet(trade) {
     trade.time.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
   const session = getSession(trade.time);
 
+  // Columns match Trade Database exactly:
+  // Date, Session, Instrument, Direction, Contracts,
+  // Entry Price, Exit Price, Stop Price, Stop Dist,
+  // Gross P&L, Commission, Net P&L, R,
+  // Rules Followed, Emotion In, Emotion Out,
+  // Setup/Trigger, What Went Right, What Went Wrong, Lesson
   const row = [
-    timeStr, session, trade.inst, trade.direction,
-    trade.contracts, trade.entry, '', '', trade.exit,
-    trade.stopDist || '', '', trade.net.toFixed(2),
+    timeStr,
+    session,
+    trade.inst,
+    trade.direction,
+    trade.contracts,
+    trade.entry,
+    trade.exit,
+    trade.stop     || '',
+    trade.stopDist  > 0 ? trade.stopDist.toFixed(2) : '',
+    trade.gross.toFixed(2),
+    trade.comm.toFixed(2),
+    trade.net.toFixed(2),
     trade.r != null ? trade.r.toFixed(2) : '',
-    trade.setup  || '', trade.rules  || '',
-    trade.emoIn  || '', trade.emoOut || '',
-    trade.right  || '', trade.wrong  || '', trade.lesson || ''
+    trade.rules  || '',
+    trade.emoIn  || '',
+    trade.emoOut || '',
+    trade.setup  || '',
+    trade.right  || '',
+    trade.wrong  || '',
+    trade.lesson || ''
   ];
 
   try {
