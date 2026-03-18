@@ -2490,6 +2490,7 @@ async function clearTrades() {
     return;
   }
 
+  tradesCleared = true;
   state.trades = [];
   renderTable();
   updateStats();
@@ -3282,6 +3283,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null;
+let tradesCleared = false; // prevents reload after intentional clear
 let authMode = 'signin';
 
 // ── AUTH UI ────────────────────────────────────────────────────────
@@ -3491,6 +3493,10 @@ async function saveTradeToSupabase(trade) {
 
 async function loadTradesFromSupabase() {
   if (!currentUser) return;
+  if (tradesCleared) {
+    addLog('Trades were cleared — not reloading from cloud', 'info');
+    return;
+  }
   try {
     addLog('Loading trades from cloud...', 'info');
     const { data, error } = await sb
