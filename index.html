@@ -2137,7 +2137,18 @@ function mapInstrument(sym) {
 }
 
 // == TRADE MANAGEMENT ==
+function tradeKey(inst, direction, entry, exit_, time, acct) {
+  const d = time instanceof Date ? time : new Date(time || 0);
+  const dateMin = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate() + '-' + d.getHours() + '-' + d.getMinutes();
+  return (acct || 'default') + '|' + inst + '|' + direction + '|' + entry + '|' + exit_ + '|' + dateMin;
+}
+
 function addTrade(t) {
+  // Deduplicate — skip if same instrument/direction/prices/time already loaded
+  const key = tradeKey(t.inst, t.direction, t.entry, t.exit, t.time, t.acct);
+  if (state.trades.some(existing => tradeKey(existing.inst, existing.direction, existing.entry, existing.exit, existing.time, existing.acct) === key)) {
+    return; // already have this trade
+  }
   const pv = state.pointValues[t.inst] || 1;
   const dir = t.direction === 'Long' ? 1 : -1;
   const gross = (t.exit - t.entry) * dir * pv * t.contracts;
@@ -2166,6 +2177,11 @@ function addTrade(t) {
 }
 
 function addPosition(p) {
+  // Deduplicate positions by inst/direction/avgEntry/avgExit/time
+  const key = tradeKey(p.inst, p.direction, p.avgEntry, p.avgExit, p.exitTime, p.acct);
+  if (state.trades.some(existing => tradeKey(existing.inst, existing.direction, existing.entry, existing.exit, existing.time, existing.acct) === key)) {
+    return; // already have this trade
+  }
   const pv  = state.pointValues[p.inst] || 1;
   const dir = p.direction === 'Long' ? 1 : -1;
 
@@ -2193,6 +2209,7 @@ function addPosition(p) {
 
   const position = {
     id: p.id,
+    acct: p.acct || 'default',
     inst: p.inst,
     direction: p.direction,
     contracts: p.totalContracts,
@@ -2363,6 +2380,12 @@ function clearTrades() {
 
 // == RENDER ==
 function renderTable() {
+  // Always sort by actual trade time, newest first
+  state.trades.sort((a, b) => {
+    const da = a.time instanceof Date ? a.time : new Date(a.time || 0);
+    const db = b.time instanceof Date ? b.time : new Date(b.time || 0);
+    return db - da;
+  });
   const tbody = document.getElementById('trade-tbody');
   const banner = document.getElementById('export-banner');
   if (!tbody) return;
@@ -2732,6 +2755,7 @@ function parseTradovateCSV(text) {
   const iQty   = ci('quantity');
   const iPrice = ci('price');
   const iSym   = ci('product');
+  const iAcct  = ci('account');
 
   addLog(`Cols → time:${iTime} b/s:${iBS} qty:${iQty} price:${iPrice} sym:${iSym}`, 'info');
 
@@ -2750,6 +2774,7 @@ function parseTradovateCSV(text) {
     const qty   = parseInt(cols[iQty])    || 0;
     const price = parseFloat(cols[iPrice]) || 0;
     const timeRaw = iTime >= 0 && cols[iTime] ? cols[iTime].replace(/"/g,'').trim() : '';
+    const acct = iAcct >= 0 && cols[iAcct] ? cols[iAcct].replace(/"/g,'').trim() : 'default';
     // Parse Tradovate timestamp as LOCAL time — new Date() can parse as UTC on some browsers
     // Tradovate format: "3/17/2026 8:45 AM"
     let time = new Date();
@@ -2767,7 +2792,7 @@ function parseTradovateCSV(text) {
       }
     }
     if (!sym || !bs || !qty || !price) { skipped++; return; }
-    fills.push({ sym, bs, qty, price, time });
+    fills.push({ sym, bs, qty, price, time, acct });
   });
 
   addLog(`${fills.length} fills parsed, ${skipped} rows skipped`, 'info');
@@ -2817,6 +2842,7 @@ function parseTradovateCSV(text) {
 
           const posId = `pos-${sym}-${positionCount}-${fill.time.getTime()}`;
           addPosition({
+            acct: partials[0] ? partials[0].acct : 'default',
             id: posId,
             inst: sym,
             direction,
@@ -3198,20 +3224,37 @@ async function saveTradeToSupabase(trade) {
     went_wrong:     trade.wrong  || null,
     lesson:         trade.lesson || null,
     source:         trade.source || 'manual',
-    trade_time:     tradeTime.toISOString()
+    trade_time:     tradeTime.toISOString(),
+    account_id:     trade.acct || null
   };
 
   // Only include id if it's a real Supabase UUID (not our local CSV id)
   if (trade.supabaseId) payload.id = trade.supabaseId;
 
   try {
+    // Check if this trade already exists in Supabase to avoid cloud duplicates
+    const { data: existing } = await sb.from('trades')
+      .select('id')
+      .eq('user_id', currentUser.id)
+      .eq('instrument', payload.instrument)
+      .eq('direction', payload.direction)
+      .eq('entry_price', payload.entry_price)
+      .eq('exit_price', payload.exit_price)
+      .eq('account_id', payload.account_id || null)
+      .eq('trade_time', payload.trade_time)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      trade.supabaseId = existing[0].id;
+      return; // already in cloud, skip
+    }
+
     const { data, error } = await sb.from('trades').insert(payload).select();
 
     if (error) {
       addLog('Save error: ' + error.message + ' (code: ' + error.code + ')', 'err');
       console.error('Supabase save error:', error, payload);
     } else {
-      // Store the Supabase-assigned ID back on the trade object
       if (data && data[0]) trade.supabaseId = data[0].id;
       addLog(`☁ Saved: ${trade.inst} ${trade.direction} $${(trade.net||0).toFixed(2)}`, 'ok');
     }
@@ -3229,12 +3272,14 @@ async function loadTradesFromSupabase() {
       .from('trades')
       .select('*')
       .eq('user_id', currentUser.id)
-      .order('created_at', { ascending: false })
+      .order('trade_time', { ascending: false, nullsFirst: false })
       .limit(500);
 
     if (error) throw error;
 
     if (data && data.length > 0) {
+      // Replace in-memory trades with cloud data to avoid duplicates
+      state.trades = [];
       state.trades = data.map(row => ({
         id:         row.id,
         supabaseId: row.id,
@@ -3258,6 +3303,7 @@ async function loadTradesFromSupabase() {
         wrong:      row.went_wrong || '',
         lesson:     row.lesson || '',
         source:     row.source || '',
+        acct:       row.account_id || 'default',
         partials:   [],
         isPosition: false,
         expanded:   false
@@ -3874,7 +3920,7 @@ async function loadOptionsFromSupabase() {
     const { data, error } = await sb.from('option_trades')
       .select('*')
       .eq('user_id', currentUser.id)
-      .order('created_at', { ascending: false })
+      .order('trade_time', { ascending: false, nullsFirst: false })
       .limit(500);
     if (error || !data) return;
     state.optionTrades = data.map(row => ({
