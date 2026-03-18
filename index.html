@@ -1959,7 +1959,10 @@ function doGet(e) {<br/>
     <div class="main" id="view-options" style="display:none;">
       <div class="section-header">
         <div class="section-title">Options Trades</div>
-        <button class="btn btn-primary" style="width:auto;padding:10px 20px;font-size:13px;font-weight:700;background:var(--accent);color:#080c12;" onclick="openAddOptionModal()">+ Add Trade</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary" style="width:auto;padding:10px 20px;font-size:13px;font-weight:700;background:var(--accent);color:#080c12;" onclick="openAddOptionModal()">+ Add Trade</button>
+          <button class="btn btn-secondary" style="width:auto;padding:10px 12px;font-size:12px;color:var(--red);border-color:rgba(255,69,96,0.3);" onclick="clearOptionTrades()">✕</button>
+        </div>
       </div>
 
       <!-- Options stats strip -->
@@ -3177,7 +3180,8 @@ async function saveTradeToSupabase(trade) {
     went_right:     trade.right  || null,
     went_wrong:     trade.wrong  || null,
     lesson:         trade.lesson || null,
-    source:         trade.source || 'manual'
+    source:         trade.source || 'manual',
+    trade_time:     tradeTime.toISOString()
   };
 
   // Only include id if it's a real Supabase UUID (not our local CSV id)
@@ -3228,7 +3232,7 @@ async function loadTradesFromSupabase() {
         comm:       row.commission,
         net:        row.net_pnl,
         r:          row.r_multiple,
-        time:       new Date(row.created_at),
+        time:       row.trade_time ? new Date(row.trade_time) : (row.date ? new Date(row.date) : new Date(row.created_at)),
         rules:      row.rules_followed || '',
         setup:      row.setup || '',
         emoIn:      row.emotion_in || 5,
@@ -3501,90 +3505,92 @@ function renderCalendar() {
   const container = document.getElementById('cal-container');
   if (!container) return;
 
-  const now   = new Date();
-  const year  = now.getFullYear();
+  const now  = new Date();
+  const year = now.getFullYear();
   document.getElementById('cal-year').textContent = year;
 
-  // Build daily P&L map
+  // Build daily P&L map — use local date string to avoid timezone shifting
   const dailyPnL = {};
-  state.trades.forEach(t => {
-    const d = t.time instanceof Date ? t.time : new Date(t.time);
-    if (d.getFullYear() !== year) return;
-    const key = d.toISOString().split('T')[0];
-    dailyPnL[key] = (dailyPnL[key] || 0) + (t.net || 0);
-  });
+  const addToPnL = (trades) => {
+    trades.forEach(t => {
+      const d = t.time instanceof Date ? t.time : new Date(t.time);
+      if (isNaN(d) || d.getFullYear() !== year) return;
+      // Use local date parts to avoid UTC offset issues
+      const key = d.getFullYear() + '-' +
+        String(d.getMonth()+1).padStart(2,'0') + '-' +
+        String(d.getDate()).padStart(2,'0');
+      dailyPnL[key] = (dailyPnL[key] || 0) + (t.net || 0);
+    });
+  };
+  if (dashSource !== 'options') addToPnL(state.trades);
+  if (dashSource !== 'futures') addToPnL(state.optionTrades || []);
 
   const maxAbs = Math.max(...Object.values(dailyPnL).map(Math.abs), 1);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  // Build calendar grid
-  const startDate = new Date(year, 0, 1);
-  const endDate   = new Date(year, 11, 31);
-  const dayLabels = ['', 'M', '', 'W', '', 'F', ''];
+  // Build weeks array — each week is Sun-Sat
+  // Start from the Sunday on or before Jan 1
+  const jan1 = new Date(year, 0, 1);
+  let cur = new Date(jan1);
+  cur.setDate(cur.getDate() - cur.getDay()); // back to Sunday
 
-  // Week columns
   const weeks = [];
-  let cur = new Date(startDate);
-  // Align to Monday
-  const dow = cur.getDay();
-  cur.setDate(cur.getDate() - (dow === 0 ? 6 : dow - 1));
-
-  while (cur <= endDate || weeks.length < 53) {
+  const dec31 = new Date(year, 11, 31);
+  while (cur <= dec31) {
     const week = [];
     for (let d = 0; d < 7; d++) {
       week.push(new Date(cur));
       cur.setDate(cur.getDate() + 1);
     }
     weeks.push(week);
-    if (weeks.length >= 53) break;
   }
 
-  // Month labels
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  let html = '<div style="display:flex;gap:3px;overflow-x:auto;">';
-  
-  // Day labels column
-  html += '<div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0;">';
-  html += '<div style="height:16px;"></div>'; // month label spacer
+  // Row labels: Su M Tu W Th F Sa
+  const dayLabels = ['Su','M','Tu','W','Th','F','Sa'];
+
+  let h = '<div style="display:flex;gap:3px;min-width:max-content;">';
+
+  // Left column: day labels
+  h += '<div style="display:flex;flex-direction:column;gap:3px;padding-top:18px;">';
   dayLabels.forEach(l => {
-    html += `<div style="height:12px;width:14px;font-family:var(--mono);font-size:8px;color:var(--muted);text-align:right;line-height:12px;">${l}</div>`;
+    h += '<div style="height:13px;width:18px;font-family:var(--mono);font-size:8px;color:var(--muted);display:flex;align-items:center;justify-content:flex-end;padding-right:3px;">' + l + '</div>';
   });
-  html += '</div>';
+  h += '</div>';
 
   // Week columns
-  weeks.forEach((week, wi) => {
-    html += '<div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0;">';
-    // Month label on first week of month
-    const firstDay = week.find(d => d.getDate() === 1);
-    if (firstDay) {
-      html += `<div style="height:16px;font-family:var(--mono);font-size:8px;color:var(--muted);white-space:nowrap;">${months[firstDay.getMonth()]}</div>`;
+  weeks.forEach(week => {
+    h += '<div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0;">';
+    // Month label: show if this week contains the 1st of a month
+    const hasFirst = week.find(d => d.getDate() === 1 && d.getFullYear() === year);
+    if (hasFirst) {
+      h += '<div style="height:15px;font-family:var(--mono);font-size:8px;color:var(--muted);white-space:nowrap;line-height:15px;">' + months[hasFirst.getMonth()] + '</div>';
     } else {
-      html += '<div style="height:16px;"></div>';
+      h += '<div style="height:15px;"></div>';
     }
-    // 7 days
+    // 7 day cells Sun→Sat
     week.forEach(day => {
-      const key = day.toISOString().split('T')[0];
-      const pnl = dailyPnL[key];
-      const isCurrentYear = day.getFullYear() === year;
+      const inYear = day.getFullYear() === year;
       const isFuture = day > now;
+      const key = day.getFullYear() + '-' +
+        String(day.getMonth()+1).padStart(2,'0') + '-' +
+        String(day.getDate()).padStart(2,'0');
+      const pnl = dailyPnL[key];
+
       let bg = 'var(--surface2)';
-      if (isCurrentYear && !isFuture && pnl !== undefined) {
-        if (pnl > 0) {
-          const intensity = Math.min(pnl / maxAbs, 1);
-          bg = `rgba(0,229,160,${0.15 + intensity * 0.85})`;
-        } else if (pnl < 0) {
-          const intensity = Math.min(Math.abs(pnl) / maxAbs, 1);
-          bg = `rgba(255,69,96,${0.15 + intensity * 0.85})`;
-        }
+      if (inYear && !isFuture && pnl !== undefined) {
+        const intensity = Math.min(Math.abs(pnl) / maxAbs, 1);
+        if (pnl > 0) bg = 'rgba(0,229,160,' + (0.15 + intensity * 0.85) + ')';
+        else          bg = 'rgba(255,69,96,' + (0.15 + intensity * 0.85) + ')';
       }
-      const opacity = !isCurrentYear || isFuture ? '0.2' : '1';
-      const title = pnl !== undefined ? `${key}: $${pnl.toFixed(2)}` : key;
-      html += `<div title="${title}" style="width:12px;height:12px;border-radius:2px;background:${bg};opacity:${opacity};flex-shrink:0;cursor:default;"></div>`;
+      const opacity = (!inYear || isFuture) ? '0.2' : '1';
+      const title = pnl !== undefined ? key + ': ' + (pnl>=0?'+':'') + '$' + pnl.toFixed(2) : key;
+      h += '<div title="' + title + '" style="width:13px;height:13px;border-radius:2px;background:' + bg + ';opacity:' + opacity + ';flex-shrink:0;"></div>';
     });
-    html += '</div>';
+    h += '</div>';
   });
 
-  html += '</div>';
-  container.innerHTML = html;
+  h += '</div>';
+  container.innerHTML = h;
   } catch(e) { console.warn('calendar error:', e); }
 }
 
@@ -3748,6 +3754,14 @@ function saveOptionTrade() {
   ['opt-underlying','opt-strike','opt-expiry','opt-entry-price','opt-exit-price','opt-notes'].forEach(id => {
     document.getElementById(id).value = '';
   });
+}
+
+function clearOptionTrades() {
+  if (!confirm('Clear all options trades from this session?')) return;
+  state.optionTrades = [];
+  renderOptionsTable();
+  updateOptionsStats();
+  toast('Options trades cleared', 'info');
 }
 
 function renderOptionsTable() {
