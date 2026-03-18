@@ -2748,7 +2748,22 @@ function parseTradovateCSV(text) {
     const qty   = parseInt(cols[iQty])    || 0;
     const price = parseFloat(cols[iPrice]) || 0;
     const timeRaw = iTime >= 0 && cols[iTime] ? cols[iTime].replace(/"/g,'').trim() : '';
-    const time  = timeRaw ? new Date(timeRaw) : new Date();
+    // Parse Tradovate timestamp as LOCAL time — new Date() can parse as UTC on some browsers
+    // Tradovate format: "3/17/2026 8:45 AM"
+    let time = new Date();
+    if (timeRaw) {
+      const parts = timeRaw.match(/(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+)\s+(AM|PM)/i);
+      if (parts) {
+        let mo = parseInt(parts[1]), day = parseInt(parts[2]), yr = parseInt(parts[3]);
+        let hr = parseInt(parts[4]), mn = parseInt(parts[5]), ap = parts[6].toUpperCase();
+        if (ap === 'PM' && hr !== 12) hr += 12;
+        if (ap === 'AM' && hr === 12) hr = 0;
+        time = new Date(yr, mo - 1, day, hr, mn, 0);
+      } else {
+        const d = new Date(timeRaw);
+        time = isNaN(d) ? new Date() : d;
+      }
+    }
     if (!sym || !bs || !qty || !price) { skipped++; return; }
     fills.push({ sym, bs, qty, price, time });
   });
