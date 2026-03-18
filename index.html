@@ -1519,6 +1519,16 @@
   }
   .acct-tab:hover { border-color: var(--accent); color: var(--accent); }
   .acct-tab.active { background: var(--accent); color: #080c12; border-color: var(--accent); }
+
+  /* Sortable column headers */
+  thead th.sortable {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  thead th.sortable:hover { color: var(--accent); }
+  thead th.sort-asc::after  { content: ' ▲'; color: var(--accent); font-size: 9px; }
+  thead th.sort-desc::after { content: ' ▼'; color: var(--accent); font-size: 9px; }
 </style>
 </head>
 <body>
@@ -1978,9 +1988,13 @@ function doGet(e) {<br/>
         <table>
           <thead>
             <tr>
-              <th>Date</th><th>Time</th><th>Instrument</th><th>Direction</th><th>Contracts</th>
+              <th class="sortable sort-desc" onclick="setSortCol('date')" id="th-date">Date</th>
+              <th>Time</th><th>Instrument</th><th>Direction</th><th>Contracts</th>
               <th>Entry</th><th>Exit</th><th>Stop Dist</th>
-              <th>Gross</th><th>Comm</th><th>Net P&L</th><th>R</th><th>Notes</th>
+              <th>Gross</th><th>Comm</th>
+              <th class="sortable" onclick="setSortCol('net')" id="th-net">Net P&L</th>
+              <th class="sortable" onclick="setSortCol('r')" id="th-r">R</th>
+              <th>Notes</th>
             </tr>
           </thead>
           <tbody id="trade-tbody">
@@ -2418,12 +2432,95 @@ function saveNotes() {
   closeTradeDetail();
 }
 
-function clearTrades() {
-  if (!confirm('Clear all trades from this session?')) return;
+async function clearTrades() {
+  const step1 = confirm('DELETE ALL TRADES PERMANENTLY?\n\nThis removes every trade from the cloud and cannot be undone.\n\nClick OK to continue.');
+  if (!step1) return;
+  const step2 = confirm('Last chance — are you 100% sure? This cannot be recovered.');
+  if (!step2) return;
+
+  if (!currentUser) {
+    state.trades = [];
+    renderTable(); updateStats(); updateTradeSelect();
+    updateSidebarStats(); updateFuturesSummary();
+    if (currentView === 'dashboard') renderDashboard();
+    toast('Trades cleared (not signed in — cloud unchanged)', 'info');
+    return;
+  }
+
+  toast('Deleting...', 'info');
+  addLog('Deleting all trades from Supabase...', 'info');
+
+  try {
+    const { error } = await sb
+      .from('trades')
+      .delete()
+      .eq('user_id', currentUser.id)
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+
+    if (error) {
+      addLog('Delete error: ' + error.message, 'err');
+      toast('Delete failed: ' + error.message, 'error');
+      return;
+    }
+
+    addLog('All trades permanently deleted from cloud', 'ok');
+  } catch(e) {
+    addLog('Delete exception: ' + e.message, 'err');
+    toast('Error: ' + e.message, 'error');
+    return;
+  }
+
   state.trades = [];
   renderTable();
   updateStats();
   updateTradeSelect();
+  updateSidebarStats();
+  updateFuturesSummary();
+  if (currentView === 'dashboard') renderDashboard();
+  toast('All trades permanently deleted', 'info');
+}
+
+
+// == TABLE SORT ==
+let sortCol = 'date';
+let sortDir = 'desc'; // newest first by default
+
+function setSortCol(col) {
+  if (sortCol === col) {
+    sortDir = sortDir === 'desc' ? 'asc' : 'desc';
+  } else {
+    sortCol = col;
+    sortDir = 'desc';
+  }
+  // Update header classes
+  ['date','net','r'].forEach(function(c) {
+    const th = document.getElementById('th-' + c);
+    if (!th) return;
+    th.className = 'sortable';
+    if (c === sortCol) th.className += ' sort-' + sortDir;
+  });
+  renderTable();
+}
+
+function getSortedTrades(trades) {
+  return [...trades].sort(function(a, b) {
+    if (sortCol === 'date') {
+      const da = a.time instanceof Date ? a.time : new Date(a.time || 0);
+      const db = b.time instanceof Date ? b.time : new Date(b.time || 0);
+      return sortDir === 'desc' ? db - da : da - db;
+    }
+    if (sortCol === 'net') {
+      const diff = (a.net || 0) - (b.net || 0);
+      return sortDir === 'desc' ? -diff : diff;
+    }
+    if (sortCol === 'r') {
+      const ra = a.r != null ? a.r : -999;
+      const rb = b.r != null ? b.r : -999;
+      const diff = ra - rb;
+      return sortDir === 'desc' ? -diff : diff;
+    }
+    return 0;
+  });
 }
 
 // == RENDER ==
@@ -2440,7 +2537,7 @@ function renderTable() {
 
   const rows = [];
 
-  var trades = getFilteredFutures();
+  var trades = getSortedTrades(getFilteredFutures());
   buildAcctTabs();
   trades.forEach(function(t) {
     const tTime = t.time instanceof Date ? t.time : new Date(t.time || Date.now());
