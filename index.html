@@ -1707,24 +1707,6 @@ function doGet(e) {<br/>
       </div>
     </div>
 
-    <!-- CSV Import -->
-    <div class="sidebar-section">
-      <div class="sidebar-label">Import Trades</div>
-      <div class="drop-zone" id="drop-zone"
-           ondragover="event.preventDefault();this.classList.add('drag-over')"
-           ondragleave="this.classList.remove('drag-over')"
-           ondrop="handleDrop(event)">
-        <input type="file" accept=".csv" onchange="handleFileSelect(event)"/>
-        <div class="drop-icon">📂</div>
-        <div class="drop-text">
-          <b>Drop Tradovate CSV here</b><br/>
-          or click to browse
-        </div>
-      </div>
-      <div class="csv-preview" id="csv-preview"></div>
-      <button class="btn btn-secondary" onclick="clearTrades()" style="margin-top:6px;font-size:12px;">✕ Clear All Trades</button>
-    </div>
-
     <!-- Hidden inputs still needed by addManualTrade JS -->
     <div style="display:none;">
       <input id="m-inst" list="inst-list"/>
@@ -1815,10 +1797,26 @@ function doGet(e) {<br/>
 
     <!-- ── DASHBOARD VIEW ──────────────────────────────────────── -->
     <div class="dashboard" id="view-dashboard">
-      <div class="dash-range-tabs">
-        <button class="dash-range-btn active" onclick="setDashRange('week',this)">This Week</button>
-        <button class="dash-range-btn" onclick="setDashRange('month',this)">This Month</button>
-        <button class="dash-range-btn" onclick="setDashRange('all',this)">All Time</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:20px;">
+        <div class="dash-range-tabs" style="margin-bottom:0;">
+          <button class="dash-range-btn active" onclick="setDashRange('week',this)">This Week</button>
+          <button class="dash-range-btn" onclick="setDashRange('month',this)">This Month</button>
+          <button class="dash-range-btn" onclick="setDashRange('all',this)">All Time</button>
+        </div>
+        <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+          <button id="dsrc-btn-both" onclick="setDashSource('both',this)"
+            style="padding:8px 14px;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;border:none;cursor:pointer;background:var(--accent);color:#080c12;transition:all 0.15s;">
+            All
+          </button>
+          <button id="dsrc-btn-futures" onclick="setDashSource('futures',this)"
+            style="padding:8px 14px;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;border:none;cursor:pointer;background:var(--surface2);color:var(--muted);transition:all 0.15s;">
+            Futures
+          </button>
+          <button id="dsrc-btn-options" onclick="setDashSource('options',this)"
+            style="padding:8px 14px;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;border:none;cursor:pointer;background:var(--surface2);color:var(--muted);transition:all 0.15s;">
+            Options
+          </button>
+        </div>
       </div>
       <div class="dash-stats">
         <div class="dash-stat" id="dcard-pnl">
@@ -1878,11 +1876,56 @@ function doGet(e) {<br/>
     <div class="main" id="view-futures" style="display:none;">
       <div class="section-header">
         <div class="section-title">Futures Trades</div>
-        <div style="display:flex;gap:8px;">
+        <div style="display:flex;gap:8px;align-items:center;">
           <button class="btn btn-primary" style="width:auto;padding:10px 20px;font-size:13px;font-weight:700;background:var(--accent);color:#080c12;" onclick="openAddFuturesModal()">+ Add Trade</button>
+          <label style="margin:0;cursor:pointer;">
+            <input type="file" accept=".csv" onchange="handleFileSelect(event)" style="display:none;"/>
+            <span class="btn btn-secondary" style="display:inline-block;width:auto;padding:10px 16px;font-size:13px;cursor:pointer;">↓ Import CSV</span>
+          </label>
           <button class="btn btn-secondary" style="width:auto;padding:10px 12px;font-size:12px;color:var(--red);border-color:rgba(255,69,96,0.3);" onclick="clearTrades()">✕</button>
         </div>
       </div>
+      <!-- Drop zone kept for drag-drop support, hidden -->
+      <div class="drop-zone" id="drop-zone" style="display:none;"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDrop(event)">
+        <input type="file" accept=".csv" onchange="handleFileSelect(event)"/>
+      </div>
+      <div class="csv-preview" id="csv-preview" style="margin-bottom:12px;"></div>
+      <!-- Drop zone for drag-and-drop onto futures tab -->
+      <div class="drop-zone" id="drop-zone" style="margin-bottom:16px;"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDrop(event)">
+        <input type="file" accept=".csv" onchange="handleFileSelect(event)"/>
+        <div class="drop-icon">📂</div>
+        <div class="drop-text"><b>Drop Tradovate CSV here</b><br/>or use the Import CSV button above</div>
+      </div>
+      <!-- Futures summary strip -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;" id="futures-summary">
+        <div class="dash-stat" id="fut-card-pnl">
+          <div class="dash-stat-label">Net P&L</div>
+          <div class="dash-stat-value" id="fut-stat-pnl">$0.00</div>
+          <div class="dash-stat-sub" id="fut-stat-trades">0 trades</div>
+        </div>
+        <div class="dash-stat">
+          <div class="dash-stat-label">Win Rate</div>
+          <div class="dash-stat-value" id="fut-stat-wr">—</div>
+          <div class="dash-stat-sub" id="fut-stat-wl">W / L</div>
+        </div>
+        <div class="dash-stat">
+          <div class="dash-stat-label">Profit Factor</div>
+          <div class="dash-stat-value" id="fut-stat-pf">—</div>
+          <div class="dash-stat-sub">gross wins / losses</div>
+        </div>
+        <div class="dash-stat acc">
+          <div class="dash-stat-label">Avg R</div>
+          <div class="dash-stat-value acc" id="fut-stat-r">—</div>
+          <div class="dash-stat-sub">per trade</div>
+        </div>
+      </div>
+
       <div class="table-wrap">
         <table>
           <thead>
@@ -1974,6 +2017,69 @@ function doGet(e) {<br/>
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- Trade Detail Panel -->
+<div class="trade-detail-overlay" id="detail-overlay" onclick="closeTradeDetail()"></div>
+<div class="trade-detail-panel" id="detail-panel">
+  <div class="detail-header">
+    <div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:4px;" id="detail-subtitle">TRADE DETAIL</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:1px;" id="detail-title">—</div>
+    </div>
+    <div class="detail-close" onclick="closeTradeDetail()">✕</div>
+  </div>
+  <div class="detail-stats" id="detail-stats-grid"></div>
+  <div style="border-top:1px solid var(--border);padding-top:16px;">
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:14px;">NOTES</div>
+    <label>Setup / Trigger</label>
+    <input type="text" id="note-setup" placeholder="e.g. VWAP reclaim + EMA cross"/>
+    <label>Rules Followed?</label>
+    <select id="note-rules">
+      <option value="Yes">✅ Yes</option>
+      <option value="No">❌ No</option>
+    </select>
+    <div class="emotion-row" style="margin-bottom:14px;">
+      <div class="emotion-block">
+        <label>Emotion IN</label>
+        <div class="emotion-value" id="emo-in-val">5</div>
+        <input type="range" min="1" max="10" value="5" id="emo-in" oninput="document.getElementById('emo-in-val').textContent=this.value"/>
+      </div>
+      <div class="emotion-block">
+        <label>Emotion OUT</label>
+        <div class="emotion-value" id="emo-out-val">5</div>
+        <input type="range" min="1" max="10" value="5" id="emo-out" oninput="document.getElementById('emo-out-val').textContent=this.value"/>
+      </div>
+    </div>
+    <label>What Went Right</label>
+    <textarea id="note-right" placeholder="e.g. Waited for confirmation..."></textarea>
+    <label>What Went Wrong</label>
+    <textarea id="note-wrong" placeholder="e.g. Moved stop too early..."></textarea>
+    <label>Lesson / Adjustment</label>
+    <textarea id="note-lesson" placeholder="e.g. Next time I will..."></textarea>
+    <!-- Screenshot Upload -->
+    <label style="margin-top:4px;">Screenshot <span style="color:var(--muted);font-size:11px;">(optional)</span></label>
+    <div id="screenshot-drop"
+      onclick="document.getElementById('screenshot-input').click()"
+      ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+      ondragleave="this.style.borderColor='var(--border)'"
+      ondrop="handleScreenshotDrop(event)"
+      style="border:2px dashed var(--border);border-radius:8px;padding:14px;text-align:center;cursor:pointer;margin-bottom:14px;transition:border-color 0.2s;"
+      onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      <input type="file" id="screenshot-input" accept="image/*" style="display:none;" onchange="handleScreenshotSelect(event)"/>
+      <div id="screenshot-preview" style="display:none;margin-bottom:8px;">
+        <img id="screenshot-img" style="max-width:100%;border-radius:6px;max-height:180px;object-fit:contain;"/>
+        <button onclick="event.stopPropagation();removeScreenshot()"
+          style="display:block;margin:8px auto 0;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;padding:4px 12px;border-radius:5px;cursor:pointer;">
+          ✕ Remove
+        </button>
+      </div>
+      <div id="screenshot-placeholder" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);line-height:1.8;">
+        📸 Drop screenshot here<br/>or click to upload
+      </div>
+    </div>
+    <button class="btn btn-green" onclick="saveNotes()">SAVE NOTES</button>
   </div>
 </div>
 
@@ -2347,6 +2453,7 @@ function updateStats() {
     : null;
 
   updateSidebarStats();
+  updateFuturesSummary();
   // Daily limit (still exists in dashboard)
   const lossToday = Math.abs(Math.min(0, totalNet));
   const pct = Math.min(100, (lossToday / state.maxLoss) * 100);
@@ -3168,6 +3275,7 @@ async function updateTradeNotesInSupabase(trade) {
 // == VIEW SWITCHING ==
 let currentView = 'dashboard';
 let dashRange   = 'week';
+let dashSource  = 'both';
 let pnlChart    = null;
 let wlChart     = null;
 
@@ -3190,9 +3298,43 @@ function setDashRange(range, btn) {
   renderDashboard();
 }
 
+function setDashSource(source, btn) {
+  dashSource = source;
+  ['both','futures','options'].forEach(s => {
+    const b = document.getElementById('dsrc-btn-' + s);
+    if (!b) return;
+    b.style.background = s === source ? 'var(--accent)' : 'var(--surface2)';
+    b.style.color      = s === source ? '#080c12'       : 'var(--muted)';
+  });
+  renderDashboard();
+}
+
 // == DASHBOARD ==
 function getFilteredTrades() {
-  const all = state.trades;
+  // Source filter
+  let all = state.trades;
+  if (dashSource === 'options') {
+    // options trades live in state.optionTrades, map to common shape
+    all = (state.optionTrades || []).map(t => ({
+      ...t,
+      inst: t.underlying,
+      r: null,
+      gross: t.net,
+      comm: 0,
+      time: t.time instanceof Date ? t.time : new Date(t.time || Date.now())
+    }));
+  } else if (dashSource === 'both') {
+    const optMapped = (state.optionTrades || []).map(t => ({
+      ...t,
+      inst: t.underlying,
+      r: null,
+      gross: t.net,
+      comm: 0,
+      time: t.time instanceof Date ? t.time : new Date(t.time || Date.now())
+    }));
+    all = [...state.trades, ...optMapped];
+  }
+
   if (dashRange === 'all') return all;
   const now  = new Date();
   const start = new Date();
@@ -3502,6 +3644,18 @@ function openTradeDetail(id) {
   document.getElementById('note-lesson').value  = trade.lesson || '';
 
   // Open panel
+  // Load screenshot if exists
+  if (trade.screenshot) {
+    document.getElementById('screenshot-img').src = trade.screenshot;
+    document.getElementById('screenshot-preview').style.display = 'block';
+    document.getElementById('screenshot-placeholder').style.display = 'none';
+  } else {
+    document.getElementById('screenshot-img').src = '';
+    document.getElementById('screenshot-preview').style.display = 'none';
+    document.getElementById('screenshot-placeholder').style.display = 'block';
+    document.getElementById('screenshot-input').value = '';
+  }
+
   document.getElementById('detail-overlay').classList.add('show');
   document.getElementById('detail-panel').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -3805,6 +3959,67 @@ function updateSidebarStats() {
   if (pct >= 100) toast('DAILY MAX LOSS REACHED — Stop trading!', 'error');
 }
 
+// Screenshot handling
+function handleScreenshotDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.getElementById('screenshot-drop').style.borderColor = 'var(--border)';
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) loadScreenshot(file);
+}
+function handleScreenshotSelect(e) {
+  const file = e.target.files[0];
+  if (file) loadScreenshot(file);
+}
+function loadScreenshot(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('screenshot-img').src = e.target.result;
+    document.getElementById('screenshot-preview').style.display = 'block';
+    document.getElementById('screenshot-placeholder').style.display = 'none';
+    if (selectedTradeId) {
+      const trade = state.trades.find(t => t.id === selectedTradeId);
+      if (trade) trade.screenshot = e.target.result;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+function removeScreenshot() {
+  document.getElementById('screenshot-img').src = '';
+  document.getElementById('screenshot-preview').style.display = 'none';
+  document.getElementById('screenshot-placeholder').style.display = 'block';
+  document.getElementById('screenshot-input').value = '';
+  if (selectedTradeId) {
+    const trade = state.trades.find(t => t.id === selectedTradeId);
+    if (trade) trade.screenshot = null;
+  }
+}
+
+
+function updateFuturesSummary() {
+  const trades = state.trades;
+  const wins   = trades.filter(t => t.net > 0);
+  const losses = trades.filter(t => t.net < 0);
+  const total  = trades.reduce((s,t) => s + (t.net||0), 0);
+  const wr     = trades.length > 0 ? (wins.length / trades.length * 100) : null;
+  const rs     = trades.filter(t => t.r != null);
+  const avgR   = rs.length > 0 ? rs.reduce((s,t) => s + t.r, 0) / rs.length : null;
+  const gw     = wins.reduce((s,t)   => s + (t.gross||0), 0);
+  const gl     = Math.abs(losses.reduce((s,t) => s + (t.gross||0), 0));
+  const pf     = gl > 0 ? gw / gl : null;
+
+  const pnlEl = document.getElementById('fut-stat-pnl');
+  if (!pnlEl) return;
+  pnlEl.textContent = (total >= 0 ? '+' : '') + '$' + Math.abs(total).toFixed(2);
+  pnlEl.className   = 'dash-stat-value ' + (total > 0 ? 'pos' : total < 0 ? 'neg' : '');
+  document.getElementById('fut-card-pnl').className = 'dash-stat ' + (total > 0 ? 'pos' : total < 0 ? 'neg' : '');
+  document.getElementById('fut-stat-trades').textContent = trades.length + ' trades';
+  document.getElementById('fut-stat-wr').textContent = wr != null ? wr.toFixed(1) + '%' : '—';
+  document.getElementById('fut-stat-wl').textContent = wins.length + 'W / ' + losses.length + 'L';
+  document.getElementById('fut-stat-pf').textContent = pf != null ? pf.toFixed(2) : '—';
+  document.getElementById('fut-stat-r').textContent  = avgR != null ? (avgR >= 0 ? '+' : '') + avgR.toFixed(2) + 'R' : '—';
+}
+
 // == INIT ==
 (async function init() {
   // Restore max loss
@@ -4009,9 +4224,11 @@ function updateSidebarStats() {
   </div>
   <button class="btn btn-primary" onclick="saveFuturesTrade()" style="width:100%;">SAVE TRADE</button>
 </div>
+<style>
 @media (max-width: 768px) {
   #futures-modal { top:auto; bottom:0; left:0; right:0; transform:none; width:100%; max-width:100%; border-radius:16px 16px 0 0; }
 }
+</style>
 
 </body>
 </html>
