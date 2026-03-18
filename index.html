@@ -1930,13 +1930,13 @@ function doGet(e) {<br/>
         <table>
           <thead>
             <tr>
-              <th>Time</th><th>Instrument</th><th>Direction</th><th>Contracts</th>
+              <th>Date</th><th>Time</th><th>Instrument</th><th>Direction</th><th>Contracts</th>
               <th>Entry</th><th>Exit</th><th>Stop Dist</th>
               <th>Gross</th><th>Comm</th><th>Net P&L</th><th>R</th><th>Notes</th>
             </tr>
           </thead>
           <tbody id="trade-tbody">
-            <tr><td colspan="12">
+            <tr><td colspan="13">
               <div class="empty-state">
                 <div class="empty-icon">📋</div>
                 <div class="empty-text">No futures trades yet.<br/>Import a Tradovate CSV or add a trade manually.</div>
@@ -2395,8 +2395,10 @@ function renderTable() {
     const dirTag       = t.direction === 'Long' ? 'tag-long' : 'tag-short';
     const grossClass   = t.gross >= 0 ? 'pnl-pos' : 'pnl-neg';
 
+    const dateStr = tTime.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
     rows.push(
       '<tr class="position-row" ' + onclickAttr + '>' +
+      '<td style="color:var(--muted);font-size:11px;white-space:nowrap;">' + dateStr + '</td>' +
       '<td style="color:var(--muted);font-size:12px;">' + toggleHtml + timeDisplay + '</td>' +
       '<td><span class="tag tag-inst">' + t.inst + '</span></td>' +
       '<td><span class="tag ' + dirTag + '">' + t.direction + '</span></td>' +
@@ -3953,7 +3955,12 @@ function saveFuturesTrade() {
 
 // Update sidebar live stats
 function updateSidebarStats() {
-  const trades   = state.trades;
+  // Filter to today's trades only
+  const todayStr = new Date().toDateString();
+  const trades   = state.trades.filter(t => {
+    const d = t.time instanceof Date ? t.time : new Date(t.time);
+    return d.toDateString() === todayStr;
+  });
   const totalNet = trades.reduce((s,t) => s + (t.net||0), 0);
   const wins     = trades.filter(t => t.net > 0).length;
   const losses   = trades.filter(t => t.net < 0).length;
