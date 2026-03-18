@@ -2262,7 +2262,7 @@ function updateManualOptPnL() {
   const contr  = parseInt(document.getElementById('m-opt-contracts').value)  || 1;
   const dir    = document.getElementById('m-dir').value;
   if (!entry || !exit_) { document.getElementById('m-opt-pnl').textContent = '—'; return; }
-  const pnl = (exit_ - entry) * (dir === 'Long' ? 1 : -1) * contr * 100;
+  const pnl = (exit_ - entry) * contr * 100;
   const el  = document.getElementById('m-opt-pnl');
   el.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
   el.style.color = pnl > 0 ? 'var(--green)' : pnl < 0 ? 'var(--red)' : 'var(--text)';
@@ -2274,7 +2274,7 @@ function updateManualOptPnLMob() {
   const contr  = parseInt(document.getElementById('m-opt-contracts-mob').value) || 1;
   const dir    = document.getElementById('m-dir-mob').value;
   if (!entry || !exit_) { document.getElementById('m-opt-pnl-mob').textContent = '—'; return; }
-  const pnl = (exit_ - entry) * (dir === 'Long' ? 1 : -1) * contr * 100;
+  const pnl = (exit_ - entry) * contr * 100;
   const el  = document.getElementById('m-opt-pnl-mob');
   el.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
   el.style.color = pnl > 0 ? 'var(--green)' : pnl < 0 ? 'var(--red)' : 'var(--text)';
@@ -2293,7 +2293,7 @@ function addManualTrade() {
     const strike    = parseFloat(document.getElementById('m-strike').value) || 0;
     const expiry    = document.getElementById('m-expiry').value;
     if (!entryPrem || !exitPrem) { toast('Enter entry and exit premium', 'error'); return; }
-    const net = (exitPrem - entryPrem) * (dir === 'Long' ? 1 : -1) * contracts * 100;
+    const net = (exitPrem - entryPrem) * contracts * 100;
     const entry = new Date(document.getElementById('m-expiry').value || Date.now());
     const dte   = expiry ? Math.round((new Date(expiry) - new Date()) / (1000*60*60*24)) : null;
     const trade = {
@@ -2950,7 +2950,7 @@ function addManualTradeMobile() {
     const contracts = parseInt(document.getElementById('m-opt-contracts-mob').value) || 1;
     const optType   = document.getElementById('m-opt-type-mob').value;
     if (!entryPrem || !exitPrem) { toast('Enter entry and exit premium', 'error'); return; }
-    const net = (exitPrem - entryPrem) * (dir === 'Long' ? 1 : -1) * contracts * 100;
+    const net = (exitPrem - entryPrem) * contracts * 100;
     const trade = {
       id: 'opt-manual-mob-' + Date.now(),
       underlying: inst, strategy: 'Single Leg', type: optType,
@@ -3696,8 +3696,7 @@ function updateOptPnlPreview() {
   const contracts = parseInt(document.getElementById('opt-contracts').value)     || 1;
   const direction = document.getElementById('opt-direction').value;
   if (!entry || !exit) { document.getElementById('opt-pnl-preview').textContent = '—'; return; }
-  const mult = direction === 'Long' ? 1 : -1;
-  const pnl  = (exit - entry) * mult * contracts * 100;
+  const pnl  = (exit - entry) * contracts * 100;
   const el   = document.getElementById('opt-pnl-preview');
   el.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
   el.style.color = pnl > 0 ? 'var(--green)' : pnl < 0 ? 'var(--red)' : 'var(--text)';
@@ -3722,8 +3721,7 @@ function saveOptionTrade() {
     toast('Please fill in Underlying, Entry, and Exit price', 'error'); return;
   }
 
-  const mult   = direction === 'Long' ? 1 : -1;
-  const net    = (exitPrice - entryPrice) * mult * contracts * 100;
+  const net    = (exitPrice - entryPrice) * contracts * 100;
   const entry  = new Date(entryDate || Date.now());
   const expDate= expiry ? new Date(expiry) : null;
   const dte    = expDate ? Math.round((expDate - entry) / (1000*60*60*24)) : null;
