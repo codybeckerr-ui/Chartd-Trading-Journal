@@ -2185,7 +2185,19 @@ function mapInstrument(sym) {
 }
 
 // == TRADE MANAGEMENT ==
+
+function tradeKey(inst, direction, entry, exit_, time, acct) {
+  const d = time instanceof Date ? time : new Date(time || 0);
+  const t = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate() + '-' + d.getHours() + '-' + d.getMinutes();
+  return (acct || 'default') + '|' + inst + '|' + direction + '|' + (entry||0).toFixed(2) + '|' + (exit_||0).toFixed(2) + '|' + t;
+}
+
 function addTrade(t) {
+  // Skip if already in memory (cross-device dedup — checks cloud-loaded trades)
+  const key = tradeKey(t.inst, t.direction, t.entry, t.exit, t.time, t.acct);
+  if (state.trades.some(function(e) { return tradeKey(e.inst, e.direction, e.entry, e.exit, e.time, e.acct) === key; })) {
+    return;
+  }
   const pv = state.pointValues[t.inst] || 1;
   const dir = t.direction === 'Long' ? 1 : -1;
   const gross = (t.exit - t.entry) * dir * pv * t.contracts;
@@ -2214,6 +2226,11 @@ function addTrade(t) {
 }
 
 function addPosition(p) {
+  // Skip if already in memory
+  const key = tradeKey(p.inst, p.direction, p.avgEntry, p.avgExit, p.exitTime, p.acct);
+  if (state.trades.some(function(e) { return tradeKey(e.inst, e.direction, e.entry, e.exit, e.time, e.acct) === key; })) {
+    return;
+  }
   const pv  = state.pointValues[p.inst] || 1;
   const dir = p.direction === 'Long' ? 1 : -1;
 
@@ -2768,6 +2785,90 @@ function parseCSVFile(file) {
     addLog(`CSV import: ${result.trades} trades loaded`, 'ok');
   };
   reader.readAsText(file);
+}
+
+
+function parseTradePnLFormat(lines, headers) {
+  const ci = (names) => {
+    for (const n of names) {
+      const i = headers.indexOf(n.toLowerCase());
+      if (i >= 0) return i;
+    }
+    return -1;
+  };
+
+  const iSym      = ci(['symbol']);
+  const iQty      = ci(['qty','quantity']);
+  const iBuyPrice = ci(['buyprice','buy price','entry','avg entry']);
+  const iSellPrice= ci(['sellprice','sell price','exit','avg exit']);
+  const iPnl      = ci(['pnl','p&l','net pnl']);
+  const iBuyTime  = ci(['boughttimestamp','buy time','entry time','bought timestamp']);
+  const iSellTime = ci(['soldtimestamp','sell time','exit time','sold timestamp']);
+  const iAcct     = ci(['account','accountid','account id']);
+
+  let tradeCount = 0, skipped = 0;
+
+  lines.slice(1).forEach(function(line) {
+    if (!line.trim()) return;
+    const cols = splitCSVLine(line);
+
+    const sym       = iSym >= 0      ? cols[iSym].replace(/"/g,'').trim()       : '';
+    const qty       = iQty >= 0      ? parseInt(cols[iQty])  || 1               : 1;
+    const buyPrice  = iBuyPrice >= 0  ? parseFloat(cols[iBuyPrice])  || 0        : 0;
+    const sellPrice = iSellPrice >= 0 ? parseFloat(cols[iSellPrice]) || 0        : 0;
+    const acct      = iAcct >= 0      ? cols[iAcct].replace(/"/g,'').trim()      : 'default';
+
+    // Parse timestamps
+    const buyTimeRaw  = iBuyTime >= 0  ? cols[iBuyTime].replace(/"/g,'').trim()  : '';
+    const sellTimeRaw = iSellTime >= 0 ? cols[iSellTime].replace(/"/g,'').trim() : '';
+
+    function parseLocalTime(raw) {
+      if (!raw) return new Date();
+      // Format: "03/09/2026 10:41:46"
+      const parts = raw.match(/(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+)(?::(\d+))?/);
+      if (parts) {
+        return new Date(parseInt(parts[3]), parseInt(parts[1])-1, parseInt(parts[2]),
+                        parseInt(parts[4]), parseInt(parts[5]), parseInt(parts[6]||0));
+      }
+      const d = new Date(raw);
+      return isNaN(d) ? new Date() : d;
+    }
+
+    const entryTime = parseLocalTime(buyTimeRaw);
+    const exitTime  = parseLocalTime(sellTimeRaw);
+
+    if (!sym || !buyPrice || !sellPrice) { skipped++; return; }
+
+    // Determine direction: if buyPrice < sellPrice profit = long, but check pnl to be sure
+    // Actually direction from this format: buy then sell = Long, sell then buy = Short
+    // boughtTimestamp < soldTimestamp = Long (bought first)
+    // boughtTimestamp > soldTimestamp = Short (sold first, covered later)
+    const isLong = entryTime <= exitTime;
+    const direction = isLong ? 'Long' : 'Short';
+    const entry = isLong ? buyPrice  : sellPrice;
+    const exit_ = isLong ? sellPrice : buyPrice;
+
+    const inst = mapInstrument(sym);
+
+    addPosition({
+      id:             'csv-pnl-' + sym + '-' + tradeCount + '-' + exitTime.getTime(),
+      acct:           acct,
+      inst:           inst,
+      direction:      direction,
+      totalContracts: qty,
+      avgEntry:       entry,
+      avgExit:        exit_,
+      entryTime:      entryTime,
+      exitTime:       exitTime,
+      partials:       [{ entryPrice: entry, exitPrice: exit_, contracts: qty, entryTime: entryTime, exitTime: exitTime, acct: acct }],
+      stop:           0,
+      source:         'csv'
+    });
+    tradeCount++;
+  });
+
+  addLog('Trade P&L format: ' + tradeCount + ' trades parsed', 'ok');
+  return { trades: tradeCount, skipped: skipped };
 }
 
 function parseTradovateCSV(text) {
