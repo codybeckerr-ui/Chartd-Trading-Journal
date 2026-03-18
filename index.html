@@ -2808,10 +2808,10 @@ function parseTradovateCSV(text) {
 
     symFills.forEach(fill => {
       if (openFills.length === 0) {
-        openFills.push({ ...fill, remaining: fill.qty });
+        openFills.push({ ...fill, remaining: fill.qty, acct: fill.acct || 'default' });
       } else if (openFills[0].bs === fill.bs) {
         // Scale IN — same direction, add to position
-        openFills.push({ ...fill, remaining: fill.qty });
+        openFills.push({ ...fill, remaining: fill.qty, acct: fill.acct || 'default' });
       } else {
         // Closing fill — match against open fills and build partials
         let closeRem = fill.qty;
@@ -2821,7 +2821,7 @@ function parseTradovateCSV(text) {
         while (openFills.length > 0 && closeRem > 0) {
           const open = openFills[0];
           const contracts = Math.min(open.remaining, closeRem);
-          partials.push({ entryPrice: open.price, exitPrice: fill.price, contracts, entryTime: open.time, exitTime: fill.time });
+          partials.push({ entryPrice: open.price, exitPrice: fill.price, contracts, entryTime: open.time, exitTime: fill.time, acct: open.acct || fill.acct || 'default' });
           entryFillsUsed.push({ price: open.price, contracts });
           closeRem       -= contracts;
           open.remaining -= contracts;
@@ -2842,7 +2842,7 @@ function parseTradovateCSV(text) {
 
           const posId = `pos-${sym}-${positionCount}-${fill.time.getTime()}`;
           addPosition({
-            acct: partials[0] ? partials[0].acct : 'default',
+            acct: fill.acct || 'default',
             id: posId,
             inst: sym,
             direction,
