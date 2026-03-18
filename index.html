@@ -2204,41 +2204,20 @@ function updateStats() {
     ? (ruledTrades.filter(t => t.rules === 'Yes').length / ruledTrades.length * 100).toFixed(0)
     : null;
 
-  // P&L
-  const pnlEl = document.getElementById('stat-pnl');
-  pnlEl.textContent = (totalNet >= 0 ? '+' : '') + '$' + Math.abs(totalNet).toFixed(2);
-  pnlEl.className = 'stat-value ' + (totalNet > 0 ? 'pos' : totalNet < 0 ? 'neg' : 'neu');
-  document.getElementById('stat-pnl-sub').textContent = trades.length + ' trade' + (trades.length !== 1 ? 's' : '');
-  document.getElementById('card-pnl').className = 'stat-card ' + (totalNet > 0 ? 'positive' : totalNet < 0 ? 'negative' : '');
-
-  // Win rate
-  const wrEl = document.getElementById('stat-wr');
-  wrEl.textContent = wr != null ? wr + '%' : '—';
-  wrEl.className = 'stat-value ' + (wr >= 50 ? 'pos' : wr < 50 ? 'neg' : 'neu');
-  document.getElementById('stat-wr-sub').textContent = `${wins}W / ${losses}L`;
-
-  // Avg R
-  const rEl = document.getElementById('stat-r');
-  rEl.textContent = avgR != null ? (avgR >= 0 ? '+' : '') + avgR.toFixed(2) + 'R' : '—';
-  rEl.className = 'stat-value ' + (avgR > 0 ? 'pos' : avgR < 0 ? 'neg' : 'neu');
-
-  // Compliance
-  const compEl = document.getElementById('stat-comp');
-  compEl.textContent = compRate != null ? compRate + '%' : '—';
-  document.getElementById('stat-comp-sub').textContent = ruledTrades.length + ' tagged';
-
-  // Daily limit
+  // Daily limit (still exists in dashboard)
   const lossToday = Math.abs(Math.min(0, totalNet));
   const pct = Math.min(100, (lossToday / state.maxLoss) * 100);
-  document.getElementById('stat-limit').textContent = '$' + lossToday.toFixed(0);
+  const limitEl = document.getElementById('stat-limit');
+  if (limitEl) limitEl.textContent = '$' + lossToday.toFixed(0);
   const fill = document.getElementById('limit-fill');
-  fill.style.width = pct + '%';
-  fill.style.background = pct < 50 ? 'var(--green)' : pct < 80 ? 'var(--yellow)' : 'var(--red)';
-
-  if (pct >= 100) {
-    toast('⚠️ DAILY MAX LOSS REACHED — Stop trading!', 'error');
-    document.getElementById('card-limit').style.borderColor = 'var(--red)';
+  if (fill) {
+    fill.style.width = pct + '%';
+    fill.style.background = pct < 50 ? 'var(--green)' : pct < 80 ? 'var(--yellow)' : 'var(--red)';
   }
+  if (pct >= 100) toast('⚠️ DAILY MAX LOSS REACHED — Stop trading!', 'error');
+
+  // Refresh dashboard if visible
+  if (currentView === 'dashboard') renderDashboard();
 }
 
 function updateTradeSelect() {
@@ -3065,6 +3044,7 @@ function getFilteredTrades() {
 }
 
 function renderDashboard() {
+  try {
   const trades = getFilteredTrades();
   const wins   = trades.filter(t => t.net > 0);
   const losses = trades.filter(t => t.net < 0);
@@ -3091,9 +3071,13 @@ function renderDashboard() {
   renderPnLChart(trades);
   renderWLChart(wins.length, losses.length);
   renderCalendar();
+  } catch(e) { console.warn('renderDashboard error:', e); }
 }
 
 function renderPnLChart(trades) {
+  try {
+  const canvas = document.getElementById('pnl-chart');
+  if (!canvas || !window.Chart) return;
   const sorted = [...trades].sort((a,b) => {
     const da = a.time instanceof Date ? a.time : new Date(a.time);
     const db = b.time instanceof Date ? b.time : new Date(b.time);
@@ -3109,8 +3093,8 @@ function renderPnLChart(trades) {
     data.push(parseFloat(cumulative.toFixed(2)));
   });
 
-  const ctx = document.getElementById('pnl-chart').getContext('2d');
-  if (pnlChart) pnlChart.destroy();
+  const ctx = canvas.getContext('2d');
+  if (pnlChart) { pnlChart.destroy(); pnlChart = null; }
 
   const isPositive = data.length > 0 && data[data.length-1] >= 0;
   const lineColor  = isPositive ? '#00e5a0' : '#ff4560';
@@ -3156,11 +3140,15 @@ function renderPnLChart(trades) {
       }
     }
   });
+  } catch(e) { console.warn('pnlChart error:', e); }
 }
 
 function renderWLChart(wins, losses) {
-  const ctx = document.getElementById('wl-chart').getContext('2d');
-  if (wlChart) wlChart.destroy();
+  try {
+  const canvas = document.getElementById('wl-chart');
+  if (!canvas || !window.Chart) return;
+  const ctx = canvas.getContext('2d');
+  if (wlChart) { wlChart.destroy(); wlChart = null; }
 
   const total = wins + losses;
   if (total === 0) {
@@ -3197,9 +3185,11 @@ function renderWLChart(wins, losses) {
       }
     }
   });
+  } catch(e) { console.warn('wlChart error:', e); }
 }
 
 function renderCalendar() {
+  try {
   const container = document.getElementById('cal-container');
   if (!container) return;
 
@@ -3287,6 +3277,7 @@ function renderCalendar() {
 
   html += '</div>';
   container.innerHTML = html;
+  } catch(e) { console.warn('calendar error:', e); }
 }
 
 // ══ TRADE DETAIL PANEL ═════════════════════════════════════════════
