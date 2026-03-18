@@ -2433,61 +2433,25 @@ function saveNotes() {
 }
 
 async function clearTrades() {
-  const step1 = confirm('DELETE ALL TRADES PERMANENTLY?\n\nThis removes every trade from the cloud and cannot be undone.\n\nClick OK to continue.');
-  if (!step1) return;
-  const step2 = confirm('Last chance — are you 100% sure? This cannot be recovered.');
-  if (!step2) return;
+  if (!confirm('Delete all futures trades permanently?\n\nThis cannot be undone.')) return;
 
-  if (!currentUser) {
-    state.trades = [];
-    renderTable(); updateStats(); updateTradeSelect();
-    updateSidebarStats(); updateFuturesSummary();
-    if (currentView === 'dashboard') renderDashboard();
-    toast('Trades cleared (not signed in — cloud unchanged)', 'info');
-    return;
-  }
-
-  toast('Deleting...', 'info');
-  addLog('Deleting all trades from Supabase...', 'info');
-
-  try {
-    // Get all trade IDs first then delete by ID to bypass any RLS issues
-    const { data: allTrades, error: fetchErr } = await sb
-      .from('trades')
-      .select('id')
-      .eq('user_id', currentUser.id);
-
-    if (fetchErr) {
-      addLog('Fetch error: ' + fetchErr.message, 'err');
-      toast('Error: ' + fetchErr.message, 'error');
+  if (currentUser) {
+    try {
+      const { data: all } = await sb.from('trades').select('id').eq('user_id', currentUser.id);
+      if (all && all.length > 0) {
+        const ids = all.map(function(t) { return t.id; });
+        for (let i = 0; i < ids.length; i += 100) {
+          await sb.from('trades').delete().in('id', ids.slice(i, i+100));
+        }
+        addLog('Deleted ' + all.length + ' futures trades from cloud', 'ok');
+      } else {
+        addLog('No futures trades found in cloud', 'ok');
+      }
+    } catch(e) {
+      addLog('Delete error: ' + e.message, 'err');
+      toast('Delete failed: ' + e.message, 'error');
       return;
     }
-
-    if (!allTrades || allTrades.length === 0) {
-      addLog('No trades found in cloud to delete', 'ok');
-    } else {
-      addLog('Found ' + allTrades.length + ' trades — deleting...', 'info');
-      const ids = allTrades.map(function(t) { return t.id; });
-
-      // Delete in chunks of 100
-      for (let i = 0; i < ids.length; i += 100) {
-        const chunk = ids.slice(i, i + 100);
-        const { error: delErr } = await sb
-          .from('trades')
-          .delete()
-          .in('id', chunk);
-        if (delErr) {
-          addLog('Chunk delete error: ' + delErr.message, 'err');
-          toast('Delete failed: ' + delErr.message, 'error');
-          return;
-        }
-      }
-      addLog('All ' + allTrades.length + ' trades permanently deleted', 'ok');
-    }
-  } catch(e) {
-    addLog('Delete exception: ' + e.message, 'err');
-    toast('Error: ' + e.message, 'error');
-    return;
   }
 
   tradesCleared = true;
@@ -2498,7 +2462,7 @@ async function clearTrades() {
   updateSidebarStats();
   updateFuturesSummary();
   if (currentView === 'dashboard') renderDashboard();
-  toast('All trades permanently deleted', 'info');
+  toast('Futures trades permanently deleted', 'info');
 }
 
 
@@ -4049,12 +4013,30 @@ function saveOptionTrade() {
   });
 }
 
-function clearOptionTrades() {
-  if (!confirm('Clear all options trades from this session?')) return;
+async function clearOptionTrades() {
+  if (!confirm('Delete all options trades permanently?\n\nThis cannot be undone.')) return;
+
+  if (currentUser) {
+    try {
+      const { data: all } = await sb.from('option_trades').select('id').eq('user_id', currentUser.id);
+      if (all && all.length > 0) {
+        const ids = all.map(function(t) { return t.id; });
+        for (let i = 0; i < ids.length; i += 100) {
+          await sb.from('option_trades').delete().in('id', ids.slice(i, i+100));
+        }
+        addLog('Deleted ' + all.length + ' options trades from cloud', 'ok');
+      }
+    } catch(e) {
+      addLog('Options delete error: ' + e.message, 'err');
+      toast('Delete failed: ' + e.message, 'error');
+      return;
+    }
+  }
+
   state.optionTrades = [];
   renderOptionsTable();
   updateOptionsStats();
-  toast('Options trades cleared', 'info');
+  toast('Options trades permanently deleted', 'info');
 }
 
 function renderOptionsTable() {
