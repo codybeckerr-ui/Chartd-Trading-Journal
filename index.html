@@ -2629,38 +2629,55 @@ function showSettings() {
 
 // ── SUPABASE TRADE STORAGE ─────────────────────────────────────────
 async function saveTradeToSupabase(trade) {
-  if (!currentUser) return;
-  try {
-    const { error } = await sb.from('trades').upsert({
-      id:             trade.supabaseId || undefined,
-      user_id:        currentUser.id,
-      date:           (trade.time || new Date()).toLocaleDateString('en-US'),
-      session:        getSession(trade.time || new Date()),
-      instrument:     trade.inst,
-      direction:      trade.direction,
-      contracts:      trade.contracts,
-      entry_price:    trade.entry,
-      exit_price:     trade.exit,
-      stop_price:     trade.stop || null,
-      stop_dist:      trade.stopDist || null,
-      gross_pnl:      parseFloat(trade.gross.toFixed(2)),
-      commission:     parseFloat(trade.comm.toFixed(2)),
-      net_pnl:        parseFloat(trade.net.toFixed(2)),
-      r_multiple:     trade.r != null ? parseFloat(trade.r.toFixed(2)) : null,
-      rules_followed: trade.rules || null,
-      emotion_in:     trade.emoIn || null,
-      emotion_out:    trade.emoOut || null,
-      setup:          trade.setup || null,
-      went_right:     trade.right || null,
-      went_wrong:     trade.wrong || null,
-      lesson:         trade.lesson || null,
-      source:         trade.source || 'manual'
-    }, { onConflict: 'id' });
+  if (!currentUser) {
+    addLog('Save skipped — not signed in', 'err');
+    return;
+  }
 
-    if (error) { addLog('Supabase save error: ' + error.message, 'err'); }
-    else { addLog(`Cloud saved: ${trade.inst} ${trade.direction}`, 'ok'); }
+  const tradeTime = trade.time instanceof Date ? trade.time : new Date(trade.time || Date.now());
+
+  const payload = {
+    user_id:        currentUser.id,
+    date:           tradeTime.toLocaleDateString('en-US'),
+    session:        getSession(tradeTime),
+    instrument:     trade.inst       || '',
+    direction:      trade.direction  || '',
+    contracts:      trade.contracts  || 1,
+    entry_price:    parseFloat(trade.entry)  || 0,
+    exit_price:     parseFloat(trade.exit)   || 0,
+    stop_price:     trade.stop       ? parseFloat(trade.stop)     : null,
+    stop_dist:      trade.stopDist   ? parseFloat(trade.stopDist) : null,
+    gross_pnl:      parseFloat((trade.gross || 0).toFixed(2)),
+    commission:     parseFloat((trade.comm  || 0).toFixed(2)),
+    net_pnl:        parseFloat((trade.net   || 0).toFixed(2)),
+    r_multiple:     trade.r != null  ? parseFloat(trade.r.toFixed(2)) : null,
+    rules_followed: trade.rules  || null,
+    emotion_in:     trade.emoIn  || null,
+    emotion_out:    trade.emoOut || null,
+    setup:          trade.setup  || null,
+    went_right:     trade.right  || null,
+    went_wrong:     trade.wrong  || null,
+    lesson:         trade.lesson || null,
+    source:         trade.source || 'manual'
+  };
+
+  // Only include id if it's a real Supabase UUID (not our local CSV id)
+  if (trade.supabaseId) payload.id = trade.supabaseId;
+
+  try {
+    const { data, error } = await sb.from('trades').insert(payload).select();
+
+    if (error) {
+      addLog('Save error: ' + error.message + ' (code: ' + error.code + ')', 'err');
+      console.error('Supabase save error:', error, payload);
+    } else {
+      // Store the Supabase-assigned ID back on the trade object
+      if (data && data[0]) trade.supabaseId = data[0].id;
+      addLog(`☁ Saved: ${trade.inst} ${trade.direction} $${(trade.net||0).toFixed(2)}`, 'ok');
+    }
   } catch(e) {
-    addLog('Supabase error: ' + e.message, 'err');
+    addLog('Save failed: ' + e.message, 'err');
+    console.error('Supabase exception:', e);
   }
 }
 
