@@ -1469,6 +1469,56 @@
   @media (max-width: 768px) {
     #options-modal { top:auto; bottom:0; left:0; right:0; transform:none; width:100%; max-width:100%; border-radius:16px 16px 0 0; max-height:85vh; }
   }
+
+  .acct-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .acct-tab {
+    padding: 6px 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .acct-tab:hover { border-color: var(--accent); color: var(--accent); }
+  .acct-tab.active { background: var(--accent); color: #080c12; border-color: var(--accent); }
+
+  .acct-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .acct-tab {
+    padding: 6px 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .acct-tab:hover { border-color: var(--accent); color: var(--accent); }
+  .acct-tab.active { background: var(--accent); color: #080c12; border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -1885,15 +1935,8 @@ function doGet(e) {<br/>
           <button class="btn btn-secondary" style="width:auto;padding:10px 12px;font-size:12px;color:var(--red);border-color:rgba(255,69,96,0.3);" onclick="clearTrades()">✕</button>
         </div>
       </div>
-      <!-- Drop zone kept for drag-drop support, hidden -->
-      <div class="drop-zone" id="drop-zone" style="display:none;"
-           ondragover="event.preventDefault();this.classList.add('drag-over')"
-           ondragleave="this.classList.remove('drag-over')"
-           ondrop="handleDrop(event)">
-        <input type="file" accept=".csv" onchange="handleFileSelect(event)"/>
-      </div>
       <div class="csv-preview" id="csv-preview" style="margin-bottom:12px;"></div>
-      <!-- Drop zone for drag-and-drop onto futures tab -->
+      <!-- Drop zone for drag-and-drop -->
       <div class="drop-zone" id="drop-zone" style="margin-bottom:16px;"
            ondragover="event.preventDefault();this.classList.add('drag-over')"
            ondragleave="this.classList.remove('drag-over')"
@@ -1902,6 +1945,11 @@ function doGet(e) {<br/>
         <div class="drop-icon">📂</div>
         <div class="drop-text"><b>Drop Tradovate CSV here</b><br/>or use the Import CSV button above</div>
       </div>
+      <!-- Account tabs -->
+      <div class="acct-tabs" id="acct-tabs" style="display:none;"></div>
+
+      <div class="acct-tabs" id="acct-tabs" style="display:none;"></div>
+
       <!-- Futures summary strip -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;" id="futures-summary">
         <div class="dash-stat" id="fut-card-pnl">
@@ -2137,18 +2185,7 @@ function mapInstrument(sym) {
 }
 
 // == TRADE MANAGEMENT ==
-function tradeKey(inst, direction, entry, exit_, time, acct) {
-  const d = time instanceof Date ? time : new Date(time || 0);
-  const dateMin = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate() + '-' + d.getHours() + '-' + d.getMinutes();
-  return (acct || 'default') + '|' + inst + '|' + direction + '|' + entry + '|' + exit_ + '|' + dateMin;
-}
-
 function addTrade(t) {
-  // Deduplicate — skip if same instrument/direction/prices/time already loaded
-  const key = tradeKey(t.inst, t.direction, t.entry, t.exit, t.time, t.acct);
-  if (state.trades.some(existing => tradeKey(existing.inst, existing.direction, existing.entry, existing.exit, existing.time, existing.acct) === key)) {
-    return; // already have this trade
-  }
   const pv = state.pointValues[t.inst] || 1;
   const dir = t.direction === 'Long' ? 1 : -1;
   const gross = (t.exit - t.entry) * dir * pv * t.contracts;
@@ -2177,11 +2214,6 @@ function addTrade(t) {
 }
 
 function addPosition(p) {
-  // Deduplicate positions by inst/direction/avgEntry/avgExit/time
-  const key = tradeKey(p.inst, p.direction, p.avgEntry, p.avgExit, p.exitTime, p.acct);
-  if (state.trades.some(existing => tradeKey(existing.inst, existing.direction, existing.entry, existing.exit, existing.time, existing.acct) === key)) {
-    return; // already have this trade
-  }
   const pv  = state.pointValues[p.inst] || 1;
   const dir = p.direction === 'Long' ? 1 : -1;
 
@@ -2209,7 +2241,6 @@ function addPosition(p) {
 
   const position = {
     id: p.id,
-    acct: p.acct || 'default',
     inst: p.inst,
     direction: p.direction,
     contracts: p.totalContracts,
@@ -2380,16 +2411,10 @@ function clearTrades() {
 
 // == RENDER ==
 function renderTable() {
-  // Always sort by actual trade time, newest first
-  state.trades.sort((a, b) => {
-    const da = a.time instanceof Date ? a.time : new Date(a.time || 0);
-    const db = b.time instanceof Date ? b.time : new Date(b.time || 0);
-    return db - da;
-  });
   const tbody = document.getElementById('trade-tbody');
   const banner = document.getElementById('export-banner');
   if (!tbody) return;
-  if (state.trades.length === 0) {
+  if (getFilteredFutures().length === 0) {
     tbody.innerHTML = '<tr><td colspan="12"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No trades yet.<br/>Import a CSV or add a trade manually.</div></div></td></tr>';
     if (banner) banner.style.display = 'none';
     return;
@@ -2398,7 +2423,9 @@ function renderTable() {
 
   const rows = [];
 
-  state.trades.forEach(function(t) {
+  var trades = getFilteredFutures();
+  buildAcctTabs();
+  trades.forEach(function(t) {
     const tTime = t.time instanceof Date ? t.time : new Date(t.time || Date.now());
     const timeStr  = tTime.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
     const entryTime = t.entryTime instanceof Date ? t.entryTime : (t.entryTime ? new Date(t.entryTime) : tTime);
@@ -2561,7 +2588,7 @@ async function pushToSheet(trade) {
 
 async function pushAllToSheet() {
   if (!state.gsUrl) { toast('No Apps Script URL — add it in Settings ⚙', 'error'); return; }
-  if (state.trades.length === 0) { toast('No trades to push', 'error'); return; }
+  if (getFilteredFutures().length === 0) { toast('No trades to push', 'error'); return; }
   toast(`Pushing ${state.trades.length} trades...`, 'info');
   let ok = 0;
   for (const trade of state.trades) {
@@ -2583,7 +2610,7 @@ function getSession(dt) {
 
 // == EXPORT ==
 function exportCSV() {
-  if (state.trades.length === 0) { toast('No trades to export', 'error'); return; }
+  if (getFilteredFutures().length === 0) { toast('No trades to export', 'error'); return; }
   if (typeof XLSX === 'undefined') { toast('Export library not loaded', 'error'); return; }
 
   const C = { bg:'080C12', surface:'0F1520', surface2:'141C2A', accent:'00E5A0',
@@ -2755,7 +2782,6 @@ function parseTradovateCSV(text) {
   const iQty   = ci('quantity');
   const iPrice = ci('price');
   const iSym   = ci('product');
-  const iAcct  = ci('account');
 
   addLog(`Cols → time:${iTime} b/s:${iBS} qty:${iQty} price:${iPrice} sym:${iSym}`, 'info');
 
@@ -2774,7 +2800,6 @@ function parseTradovateCSV(text) {
     const qty   = parseInt(cols[iQty])    || 0;
     const price = parseFloat(cols[iPrice]) || 0;
     const timeRaw = iTime >= 0 && cols[iTime] ? cols[iTime].replace(/"/g,'').trim() : '';
-    const acct = iAcct >= 0 && cols[iAcct] ? cols[iAcct].replace(/"/g,'').trim() : 'default';
     // Parse Tradovate timestamp as LOCAL time — new Date() can parse as UTC on some browsers
     // Tradovate format: "3/17/2026 8:45 AM"
     let time = new Date();
@@ -2792,7 +2817,7 @@ function parseTradovateCSV(text) {
       }
     }
     if (!sym || !bs || !qty || !price) { skipped++; return; }
-    fills.push({ sym, bs, qty, price, time, acct });
+    fills.push({ sym, bs, qty, price, time });
   });
 
   addLog(`${fills.length} fills parsed, ${skipped} rows skipped`, 'info');
@@ -2808,10 +2833,10 @@ function parseTradovateCSV(text) {
 
     symFills.forEach(fill => {
       if (openFills.length === 0) {
-        openFills.push({ ...fill, remaining: fill.qty, acct: fill.acct || 'default' });
+        openFills.push({ ...fill, remaining: fill.qty });
       } else if (openFills[0].bs === fill.bs) {
         // Scale IN — same direction, add to position
-        openFills.push({ ...fill, remaining: fill.qty, acct: fill.acct || 'default' });
+        openFills.push({ ...fill, remaining: fill.qty });
       } else {
         // Closing fill — match against open fills and build partials
         let closeRem = fill.qty;
@@ -2821,7 +2846,7 @@ function parseTradovateCSV(text) {
         while (openFills.length > 0 && closeRem > 0) {
           const open = openFills[0];
           const contracts = Math.min(open.remaining, closeRem);
-          partials.push({ entryPrice: open.price, exitPrice: fill.price, contracts, entryTime: open.time, exitTime: fill.time, acct: open.acct || fill.acct || 'default' });
+          partials.push({ entryPrice: open.price, exitPrice: fill.price, contracts, entryTime: open.time, exitTime: fill.time });
           entryFillsUsed.push({ price: open.price, contracts });
           closeRem       -= contracts;
           open.remaining -= contracts;
@@ -2842,7 +2867,6 @@ function parseTradovateCSV(text) {
 
           const posId = `pos-${sym}-${positionCount}-${fill.time.getTime()}`;
           addPosition({
-            acct: fill.acct || 'default',
             id: posId,
             inst: sym,
             direction,
@@ -3224,37 +3248,20 @@ async function saveTradeToSupabase(trade) {
     went_wrong:     trade.wrong  || null,
     lesson:         trade.lesson || null,
     source:         trade.source || 'manual',
-    trade_time:     tradeTime.toISOString(),
-    account_id:     trade.acct || null
+    trade_time:     tradeTime.toISOString()
   };
 
   // Only include id if it's a real Supabase UUID (not our local CSV id)
   if (trade.supabaseId) payload.id = trade.supabaseId;
 
   try {
-    // Check if this trade already exists in Supabase to avoid cloud duplicates
-    const { data: existing } = await sb.from('trades')
-      .select('id')
-      .eq('user_id', currentUser.id)
-      .eq('instrument', payload.instrument)
-      .eq('direction', payload.direction)
-      .eq('entry_price', payload.entry_price)
-      .eq('exit_price', payload.exit_price)
-      .eq('account_id', payload.account_id || null)
-      .eq('trade_time', payload.trade_time)
-      .limit(1);
-
-    if (existing && existing.length > 0) {
-      trade.supabaseId = existing[0].id;
-      return; // already in cloud, skip
-    }
-
     const { data, error } = await sb.from('trades').insert(payload).select();
 
     if (error) {
       addLog('Save error: ' + error.message + ' (code: ' + error.code + ')', 'err');
       console.error('Supabase save error:', error, payload);
     } else {
+      // Store the Supabase-assigned ID back on the trade object
       if (data && data[0]) trade.supabaseId = data[0].id;
       addLog(`☁ Saved: ${trade.inst} ${trade.direction} $${(trade.net||0).toFixed(2)}`, 'ok');
     }
@@ -3272,14 +3279,12 @@ async function loadTradesFromSupabase() {
       .from('trades')
       .select('*')
       .eq('user_id', currentUser.id)
-      .order('trade_time', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
       .limit(500);
 
     if (error) throw error;
 
     if (data && data.length > 0) {
-      // Replace in-memory trades with cloud data to avoid duplicates
-      state.trades = [];
       state.trades = data.map(row => ({
         id:         row.id,
         supabaseId: row.id,
@@ -3303,7 +3308,6 @@ async function loadTradesFromSupabase() {
         wrong:      row.went_wrong || '',
         lesson:     row.lesson || '',
         source:     row.source || '',
-        acct:       row.account_id || 'default',
         partials:   [],
         isPosition: false,
         expanded:   false
@@ -3311,6 +3315,8 @@ async function loadTradesFromSupabase() {
       renderTable();
       updateStats();
       updateTradeSelect();
+      buildAcctTabs();
+      buildAcctTabs();
       addLog(`Loaded ${data.length} trades from cloud`, 'ok');
       if (currentView === 'dashboard') renderDashboard();
     } else {
@@ -3920,7 +3926,7 @@ async function loadOptionsFromSupabase() {
     const { data, error } = await sb.from('option_trades')
       .select('*')
       .eq('user_id', currentUser.id)
-      .order('trade_time', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
       .limit(500);
     if (error || !data) return;
     state.optionTrades = data.map(row => ({
@@ -4077,7 +4083,7 @@ function removeScreenshot() {
 
 
 function updateFuturesSummary() {
-  const trades = state.trades;
+  var trades = getFilteredFutures();
   const wins   = trades.filter(t => t.net > 0);
   const losses = trades.filter(t => t.net < 0);
   const total  = trades.reduce((s,t) => s + (t.net||0), 0);
@@ -4098,6 +4104,52 @@ function updateFuturesSummary() {
   document.getElementById('fut-stat-wl').textContent = wins.length + 'W / ' + losses.length + 'L';
   document.getElementById('fut-stat-pf').textContent = pf != null ? pf.toFixed(2) : '—';
   document.getElementById('fut-stat-r').textContent  = avgR != null ? (avgR >= 0 ? '+' : '') + avgR.toFixed(2) + 'R' : '—';
+}
+
+
+
+// == ACCOUNT TABS ==
+var activeAcct = 'all';
+
+function buildAcctTabs() {
+  var container = document.getElementById('acct-tabs');
+  if (!container) return;
+  var accts = [];
+  state.trades.forEach(function(t) {
+    var a = t.acct || 'default';
+    if (accts.indexOf(a) < 0) accts.push(a);
+  });
+  accts.sort();
+  if (accts.length <= 1) {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    if (activeAcct !== 'all' && accts.indexOf(activeAcct) < 0) activeAcct = 'all';
+    return;
+  }
+  container.style.display = 'flex';
+  container.innerHTML = '';
+  var allTabs = [{ key: 'all', label: 'All Accounts' }].concat(
+    accts.map(function(a) { return { key: a, label: a === 'default' ? 'Account 1' : a }; })
+  );
+  allTabs.forEach(function(tab) {
+    var btn = document.createElement('button');
+    btn.className = 'acct-tab' + (activeAcct === tab.key ? ' active' : '');
+    btn.textContent = tab.label;
+    btn.onclick = function() { setAcct(tab.key); };
+    container.appendChild(btn);
+  });
+}
+
+function setAcct(acct) {
+  activeAcct = acct;
+  buildAcctTabs();
+  renderTable();
+  updateFuturesSummary();
+}
+
+function getFilteredFutures() {
+  if (activeAcct === 'all') return state.trades;
+  return state.trades.filter(function(t) { return (t.acct || 'default') === activeAcct; });
 }
 
 // == INIT ==
