@@ -1797,6 +1797,7 @@ function addPosition(p) {
   updateTradeSelect();
 
   if (state.gsUrl) pushToSheet(position);
+  saveTradeToSupabase(position);
   const sign = totalNet >= 0 ? '+' : '';
   addLog(`${p.inst} ${p.direction} ${p.totalContracts}x${partials.length > 1 ? ' ('+partials.length+' partials)' : ''} → Net $${totalNet.toFixed(2)}`, 'ok');
   toast(`${p.inst} ${p.direction} — Net ${sign}$${totalNet.toFixed(2)}`, totalNet >= 0 ? 'success' : 'error');
@@ -2633,8 +2634,8 @@ async function saveTradeToSupabase(trade) {
     const { error } = await sb.from('trades').upsert({
       id:             trade.supabaseId || undefined,
       user_id:        currentUser.id,
-      date:           trade.time.toLocaleDateString('en-US'),
-      session:        getSession(trade.time),
+      date:           (trade.time || new Date()).toLocaleDateString('en-US'),
+      session:        getSession(trade.time || new Date()),
       instrument:     trade.inst,
       direction:      trade.direction,
       contracts:      trade.contracts,
