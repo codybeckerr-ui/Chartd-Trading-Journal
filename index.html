@@ -2455,6 +2455,7 @@ async function clearTrades() {
   }
 
   tradesCleared = true;
+  localStorage.setItem('chartd_cleared', 'true');
   state.trades = [];
   renderTable();
   updateStats();
@@ -2863,6 +2864,8 @@ function parseCSVFile(file) {
     }
     preview.style.display = 'block';
     preview.innerHTML = `<b>✓ Imported ${result.trades} trades</b> from ${file.name}<br/>Skipped ${result.skipped} rows (open/incomplete)`;
+    localStorage.removeItem('chartd_cleared');
+    tradesCleared = false;
     toast(`Imported ${result.trades} trades from CSV`, 'success');
     addLog(`CSV import: ${result.trades} trades loaded`, 'ok');
   };
@@ -3247,7 +3250,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null;
-let tradesCleared = false; // prevents reload after intentional clear
+let tradesCleared = localStorage.getItem('chartd_cleared') === 'true';
 let authMode = 'signin';
 
 // ── AUTH UI ────────────────────────────────────────────────────────
