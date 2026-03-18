@@ -2451,19 +2451,39 @@ async function clearTrades() {
   addLog('Deleting all trades from Supabase...', 'info');
 
   try {
-    const { error } = await sb
+    // Get all trade IDs first then delete by ID to bypass any RLS issues
+    const { data: allTrades, error: fetchErr } = await sb
       .from('trades')
-      .delete()
-      .eq('user_id', currentUser.id)
-      .neq('id', '00000000-0000-0000-0000-000000000000');
+      .select('id')
+      .eq('user_id', currentUser.id);
 
-    if (error) {
-      addLog('Delete error: ' + error.message, 'err');
-      toast('Delete failed: ' + error.message, 'error');
+    if (fetchErr) {
+      addLog('Fetch error: ' + fetchErr.message, 'err');
+      toast('Error: ' + fetchErr.message, 'error');
       return;
     }
 
-    addLog('All trades permanently deleted from cloud', 'ok');
+    if (!allTrades || allTrades.length === 0) {
+      addLog('No trades found in cloud to delete', 'ok');
+    } else {
+      addLog('Found ' + allTrades.length + ' trades — deleting...', 'info');
+      const ids = allTrades.map(function(t) { return t.id; });
+
+      // Delete in chunks of 100
+      for (let i = 0; i < ids.length; i += 100) {
+        const chunk = ids.slice(i, i + 100);
+        const { error: delErr } = await sb
+          .from('trades')
+          .delete()
+          .in('id', chunk);
+        if (delErr) {
+          addLog('Chunk delete error: ' + delErr.message, 'err');
+          toast('Delete failed: ' + delErr.message, 'error');
+          return;
+        }
+      }
+      addLog('All ' + allTrades.length + ' trades permanently deleted', 'ok');
+    }
   } catch(e) {
     addLog('Delete exception: ' + e.message, 'err');
     toast('Error: ' + e.message, 'error');
