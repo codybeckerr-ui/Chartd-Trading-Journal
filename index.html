@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Chartd — Trade Journal</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
   :root {
@@ -127,6 +128,9 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+  }
+  @media (max-width: 768px) {
+    .sidebar { background: #0f1520 !important; }
   }
 
   .sidebar::-webkit-scrollbar { width: 4px; }
@@ -791,12 +795,509 @@
     letter-spacing: 1px;
     font-family: 'DM Mono', monospace;
   }
+
+/* ════════════════════════════════════════════════════════════════
+   MOBILE STYLES — iPhone Chrome (max-width: 768px)
+   Desktop layout is completely untouched above this point
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* ── HEADER ─────────────────────────────────────────────────── */
+  header {
+    padding: 14px 18px;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+  }
+  .header-right .status-pill { display: none; }
+  .logo-text { font-size: 22px !important; }
+
+  /* ── APP LAYOUT — single column, no sidebar ─────────────────── */
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    grid-template-columns: none;
+  }
+
+  /* ── SIDEBAR — hidden by default, slides in as drawer ───────── */
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 88vw;
+    max-width: 360px;
+    z-index: 310;
+    transform: translateX(-100%) translateZ(0);
+    -webkit-transform: translateX(-100%) translateZ(0);
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    -webkit-transition: -webkit-transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    border-right: 1px solid var(--border);
+    box-shadow: 4px 0 40px rgba(0,0,0,0.6);
+    padding-bottom: 80px;
+    -webkit-overflow-scrolling: touch;
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  .sidebar.open { transform: translateX(0) translateZ(0); -webkit-transform: translateX(0) translateZ(0); }
+
+  /* Drawer backdrop */
+  .drawer-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 290;
+  }
+  .drawer-backdrop.show { display: block; }
+  .drawer-backdrop { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+
+  /* ── STATS BAR — 2x2 grid on mobile ─────────────────────────── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-card {
+    padding: 14px 16px;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-card:nth-child(2) { border-right: none; }
+  .stat-card:nth-child(4) { border-right: none; }
+  .stat-value {
+    font-size: 26px !important;
+  }
+  .stat-label { font-size: 9px !important; }
+  .stat-sub { font-size: 11px !important; }
+
+  /* ── MAIN CONTENT ────────────────────────────────────────────── */
+  .main {
+    padding: 16px;
+    padding-bottom: 100px; /* space for bottom nav */
+    overflow-y: auto;
+    height: auto;
+  }
+
+  /* ── SECTION HEADER ──────────────────────────────────────────── */
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .section-header > div {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+  .section-header .btn-primary {
+    flex: 1;
+    font-size: 13px !important;
+    padding: 12px 16px !important;
+  }
+  .section-header .btn-secondary {
+    font-size: 12px !important;
+    padding: 12px 14px !important;
+  }
+
+  /* ── TRADE TABLE — horizontal scroll ────────────────────────── */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 10px;
+  }
+  table { min-width: 700px; }
+  thead th { font-size: 9px !important; padding: 10px 10px !important; }
+  td { font-size: 11px !important; padding: 12px 10px !important; }
+  .tag { font-size: 10px !important; }
+
+  /* ── TRADE CARDS — mobile card view replaces dense table ──────  */
+  .mobile-trade-cards { display: block; }
+  .desktop-table { display: none; }
+
+  .trade-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 10px;
+    transition: border-color 0.2s;
+  }
+  .trade-card:active { border-color: rgba(0,229,160,0.3); }
+
+  .trade-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .trade-card-left { display: flex; align-items: center; gap: 10px; }
+  .trade-card-time {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .trade-card-net {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    line-height: 1;
+  }
+  .trade-card-net.pos { color: var(--green); }
+  .trade-card-net.neg { color: var(--red); }
+
+  .trade-card-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .trade-card-stat {}
+  .trade-card-stat-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+  }
+  .trade-card-stat-value {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  /* ── EXPORT BANNER ───────────────────────────────────────────── */
+  #export-banner > div {
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+  #export-banner > div > div:last-child {
+    min-width: unset !important;
+    width: 100%;
+  }
+
+  /* ── NOTE PANEL ──────────────────────────────────────────────── */
+  .note-panel { padding: 16px; }
+  .input-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  /* ── BOTTOM NAV BAR ──────────────────────────────────────────── */
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 200;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 8px 0;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .mobile-nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mobile-nav-btn:active { color: var(--accent); }
+  .mobile-nav-btn.active { color: var(--accent); }
+  .mobile-nav-icon { font-size: 20px; line-height: 1; }
+
+  .mobile-nav-btn.push-btn {
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .mobile-nav-btn.push-btn .mobile-nav-icon {
+    background: var(--accent);
+    color: #080c12;
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 0 16px rgba(0,229,160,0.4);
+    margin-bottom: 2px;
+  }
+
+  /* ── MOBILE CSV DROP ─────────────────────────────────────────── */
+  .mobile-import-sheet {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    z-index: 320;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: 0 -8px 40px rgba(0,0,0,0.5);
+  }
+  .mobile-import-sheet.open { transform: translateY(0); }
+  .mobile-import-handle {
+    width: 36px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 0 auto 20px;
+  }
+  .mobile-import-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 2px;
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+
+  /* Hide desktop-only elements on mobile */
+  .progress-nav { display: none; }
+
+  /* Setup screen on mobile */
+  #setup-screen { padding: 20px 16px; }
+  .setup-card { width: 100%; padding: 28px 20px; }
+}
+
+/* Show mobile bottom nav only on mobile */
+.mobile-bottom-nav { display: none; }
+.mobile-import-sheet { display: none; }
+.drawer-backdrop { display: none; }
+@media (max-width: 768px) {
+  .mobile-bottom-nav { display: flex !important; }
+  .mobile-import-sheet { display: block !important; }
+  .drawer-backdrop { display: none; } /* controlled by JS */
+}
+
+  /* Instrument combo input */
+  input[list] { cursor: text; }
+  input[list]::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: pointer; }
+
+  /* ── AUTH SCREEN ─────────────────────────────────────────────── */
+  #auth-screen {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    z-index: 500;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    overflow-y: auto;
+    padding: 40px 20px;
+  }
+  .auth-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 40px;
+    width: 420px;
+    max-width: 100%;
+    position: relative;
+    overflow: visible;
+    margin: auto;
+  }
+  .auth-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--blue));
+    border-radius: 16px 16px 0 0;
+  }
+  .auth-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 3px;
+    margin-bottom: 6px;
+  }
+  .auth-title span { color: var(--accent); }
+  .auth-sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 28px;
+    line-height: 1.8;
+  }
+  .auth-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 24px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .auth-tab {
+    flex: 1;
+    padding: 10px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .auth-tab.active {
+    background: var(--accent);
+    color: #080c12;
+  }
+  .auth-error {
+    background: rgba(255,69,96,0.1);
+    border: 1px solid rgba(255,69,96,0.3);
+    color: var(--red);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 10px 14px;
+    border-radius: 7px;
+    margin-bottom: 14px;
+    display: none;
+    line-height: 1.6;
+  }
+  .auth-success {
+    background: rgba(0,229,160,0.1);
+    border: 1px solid rgba(0,229,160,0.3);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 10px 14px;
+    border-radius: 7px;
+    margin-bottom: 14px;
+    display: none;
+    line-height: 1.6;
+  }
+  .auth-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 20px 0;
+  }
+  .auth-gs-section {
+    display: none;
+  }
+  .gs-optional-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .gs-optional-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .user-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .user-badge:hover { border-color: var(--accent); color: var(--accent); }
+  .user-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+  }
 </style>
 </head>
 <body>
 
+<!-- ══ AUTH SCREEN ══════════════════════════════════════════════ -->
+<div id="auth-screen" style="display:none;">
+  <div class="auth-card">
+    <div class="auth-title">CHART<span>D</span></div>
+    <div class="auth-sub">Your prop firm trade journal. Sign in to access your trades from any device.</div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('signin')">SIGN IN</button>
+      <button class="auth-tab" onclick="switchAuthTab('signup')">CREATE ACCOUNT</button>
+    </div>
+
+    <div class="auth-error" id="auth-error"></div>
+    <div class="auth-success" id="auth-success"></div>
+
+    <label>Email</label>
+    <input type="email" id="auth-email" placeholder="your@email.com" autocomplete="email"/>
+
+    <label>Password</label>
+    <input type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password"/>
+
+    <div id="auth-confirm-wrap" style="display:none;">
+      <label>Confirm Password</label>
+      <input type="password" id="auth-confirm" placeholder="••••••••" autocomplete="new-password"/>
+    </div>
+
+    <button class="btn btn-primary" id="auth-btn" onclick="handleAuth()" style="margin-bottom:12px;">SIGN IN →</button>
+    <button class="btn btn-secondary" id="auth-forgot" onclick="handleForgot()" style="font-size:11px;opacity:0.7;">Forgot password?</button>
+
+    <div class="auth-divider"></div>
+
+    <!-- Optional Google Sheet backup -->
+    <div class="gs-optional-label">OPTIONAL — GOOGLE SHEET BACKUP</div>
+    <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.8;">
+      Your trades are saved to the cloud automatically. You can also sync to a Google Sheet as a backup.
+    </div>
+
+    <div>
+      <button onclick="toggleGsSetup()" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:11px 14px;border-radius:8px;font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;text-align:left;display:flex;align-items:center;justify-content:space-between;" id="gs-toggle-btn">
+        <span>Connect Google Sheet (optional)</span>
+        <span id="gs-toggle-arrow">▾</span>
+      </button>
+      <div id="gs-setup-panel" style="display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;background:var(--bg);padding:16px;">
+        <label>Apps Script URL</label>
+        <input type="text" id="gs-url" placeholder="https://script.google.com/macros/s/..."/>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.9;margin-top:-6px;">
+          <a href="https://docs.google.com/spreadsheets/d/1F2pKKjzf1k63kU_qN28QAARS1hRSAN8Gmy0cLPhq_iQ/edit?usp=sharing" target="_blank" style="color:var(--accent);">→ Get the Chartd template</a><br/>
+          Need help? <a href="#" onclick="toggleAuthHelp()" style="color:var(--accent);">View setup guide</a>
+        </div>
+        <div id="auth-help-panel" style="display:none;margin-top:12px;">
+          <div class="gs-instructions" style="background:transparent;border:none;padding:0;margin:0;font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.9;">
+            1. Open template → File → Make a copy<br/>
+            2. Extensions → Apps Script → paste:<br/>
+            <code style="display:block;margin:8px 0;padding:8px;background:var(--surface2);border-radius:5px;color:var(--accent);font-size:10px;line-height:1.8;">
+function doPost(e){<br/>
+&nbsp;&nbsp;const sheet=SpreadsheetApp.getActiveSpreadsheet()<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;.getSheetByName("Trade Database");<br/>
+&nbsp;&nbsp;const d=JSON.parse(e.postData.contents);<br/>
+&nbsp;&nbsp;if(d.action==="appendRow")sheet.appendRow(d.row);<br/>
+&nbsp;&nbsp;return ContentService.createTextOutput("ok");<br/>
+}<br/>
+function doGet(e){return ContentService.createTextOutput("alive");}
+            </code>
+            3. Deploy → New Deployment → Web App<br/>
+            Execute as: <b style="color:var(--text)">Me</b> | Who has access: <b style="color:var(--text)">Anyone</b><br/>
+            Copy the URL → paste above.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ══ SETUP SCREEN ══════════════════════════════════════════════ -->
-<div id="setup-screen">
+<div id="setup-screen" style="display:none;">
   <div class="setup-card">
     <div class="setup-title" style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:3px;">CHART<span>D</span></div>
     <div class="setup-sub">Your prop firm trade journal. Import trades via CSV or log them manually. No login required.</div>
@@ -844,6 +1345,54 @@ function doGet(e) {<br/>
 </div>
 
 <!-- ══ MAIN APP ═══════════════════════════════════════════════════ -->
+<!-- Mobile drawer backdrop -->
+<div class="drawer-backdrop" id="drawer-backdrop" onclick="closeSidebar();closeMobileImport();closeMobileAddTrade();"></div>
+
+<!-- Mobile import bottom sheet -->
+<div class="mobile-import-sheet" id="mobile-import-sheet">
+  <div class="mobile-import-handle"></div>
+  <div class="mobile-import-title">IMPORT TRADES</div>
+  <div class="drop-zone" style="margin-bottom:16px;"
+       ondragover="event.preventDefault()"
+       ondrop="handleDrop(event);closeMobileImport()">
+    <input type="file" accept=".csv" onchange="handleFileSelect(event);closeMobileImport()"/>
+    <div class="drop-icon">📂</div>
+    <div class="drop-text">
+      <b>Tap to select your Fills CSV</b><br/>
+      Export from Tradovate → Activity → Fills → Export CSV
+    </div>
+  </div>
+  <div class="csv-preview" id="csv-preview-mobile"></div>
+  <button class="btn btn-secondary" style="width:100%;margin-top:8px;" onclick="closeMobileImport()">Cancel</button>
+</div>
+
+<!-- Mobile Add Trade Bottom Sheet -->
+<div class="mobile-import-sheet" id="mobile-add-trade-sheet">
+  <div class="mobile-import-handle"></div>
+  <div class="mobile-import-title">ADD TRADE</div>
+  <div class="input-row" style="margin-bottom:0;">
+    <div>
+      <label>Instrument</label>
+      <input type="text" id="m-inst-mob" list="inst-list" placeholder="MES, MNQ, custom..." autocomplete="off" style="text-transform:uppercase;"/>
+    </div>
+    <div>
+      <label>Direction</label>
+      <select id="m-dir-mob">
+        <option>Long</option><option>Short</option>
+      </select>
+    </div>
+  </div>
+  <div class="input-row">
+    <div><label>Entry</label><input type="number" id="m-entry-mob" placeholder="5800.00" step="0.25"/></div>
+    <div><label>Exit</label><input type="number" id="m-exit-mob" placeholder="5820.00" step="0.25"/></div>
+  </div>
+  <div class="input-row">
+    <div><label>Stop <span style="color:var(--muted);font-size:11px;">(optional)</span></label><input type="number" id="m-stop-mob" placeholder="optional" step="0.25"/></div>
+    <div><label>Contracts</label><input type="number" id="m-contracts-mob" value="1" min="1"/></div>
+  </div>
+  <button class="btn btn-primary" style="width:100%;margin-top:4px;" onclick="addManualTradeMobile()">+ ADD TRADE</button>
+  <button class="btn btn-secondary" style="width:100%;margin-top:8px;" onclick="closeMobileAddTrade()">Cancel</button>
+</div>
 <header>
   <div class="logo">
     <div class="logo-text" style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:var(--text)">CHART<span style="color:var(--accent)">D</span></div>
@@ -858,7 +1407,11 @@ function doGet(e) {<br/>
       <div class="status-dot" id="gs-dot"></div>
       <span id="gs-status-text">Sheet: Off</span>
     </div>
-    <button class="btn btn-secondary" style="width:auto;padding:7px 14px;" onclick="showSetup()">⚙ Settings</button>
+    <div class="user-badge" id="user-badge" onclick="showSettings()" style="display:none;">
+      <div class="user-dot"></div>
+      <span id="user-email-display">...</span>
+    </div>
+    <button class="btn btn-secondary" style="width:auto;padding:7px 14px;" onclick="showSettings()">⚙ Settings</button>
   </div>
 </header>
 
@@ -922,9 +1475,21 @@ function doGet(e) {<br/>
       <div class="input-row">
         <div>
           <label>Instrument</label>
-          <select id="m-inst">
-            <option>MNQ</option><option>MES</option><option>MCL</option><option>MGC</option>
-          </select>
+          <input type="text" id="m-inst" list="inst-list" placeholder="MES, MNQ, custom..." autocomplete="off" style="text-transform:uppercase;"/>
+          <datalist id="inst-list">
+            <option value="MES">MES — Micro E-mini S&P 500</option>
+            <option value="MNQ">MNQ — Micro E-mini Nasdaq</option>
+            <option value="MCL">MCL — Micro Crude Oil</option>
+            <option value="MGC">MGC — Micro Gold</option>
+            <option value="ES">ES — E-mini S&P 500</option>
+            <option value="NQ">NQ — E-mini Nasdaq</option>
+            <option value="CL">CL — Crude Oil</option>
+            <option value="GC">GC — Gold</option>
+            <option value="RTY">RTY — E-mini Russell 2000</option>
+            <option value="YM">YM — E-mini Dow</option>
+            <option value="SI">SI — Silver</option>
+            <option value="NG">NG — Natural Gas</option>
+          </datalist>
         </div>
         <div>
           <label>Direction</label>
@@ -1107,7 +1672,7 @@ const state = {
   gsUrl: '',
   maxLoss: 1000,
   commission: 0.78, // per contract round trip
-  pointValues: { MNQ: 2, MES: 5, MCL: 100, MGC: 10 },
+  pointValues: { MNQ: 2, MES: 5, MCL: 100, MGC: 10, NQ: 20, ES: 50, CL: 1000, GC: 100, RTY: 50, YM: 5, SI: 5000, NG: 10000 },
   instrumentMap: {
     'MNQM5': 'MNQ', 'MESM5': 'MES', 'MCLM5': 'MCL', 'MGCM5': 'MGC',
     'MNQH5': 'MNQ', 'MESH5': 'MES', 'MCLH5': 'MCL', 'MGCH5': 'MGC',
@@ -1118,9 +1683,8 @@ const state = {
 
 // ══ SETUP / AUTH ══════════════════════════════════════════════
 function showSetup() {
-  // Repopulate URL field with current saved value
-  document.getElementById('gs-url').value = state.gsUrl || localStorage.getItem('chartd_gsUrl') || '';
-  document.getElementById('setup-screen').style.display = 'flex';
+  // Settings handled via showSettings() prompt
+  showSettings();
 }
 
 function launch() {
@@ -1171,6 +1735,7 @@ function addTrade(t) {
   updateTradeSelect();
 
   if (state.gsUrl) pushToSheet(trade);
+  saveTradeToSupabase(trade);
   addLog(`Trade logged: ${t.inst} ${t.direction} → Net $${net.toFixed(2)}`, 'ok');
   toast(`${t.inst} ${t.direction} — Net ${net >= 0 ? '+' : ''}$${net.toFixed(2)}`, net >= 0 ? 'success' : 'error');
 }
@@ -1243,7 +1808,7 @@ function togglePosition(id) {
 }
 
 function addManualTrade() {
-  const inst = document.getElementById('m-inst').value;
+  const inst = document.getElementById('m-inst').value.trim().toUpperCase();
   const dir  = document.getElementById('m-dir').value;
   const entry = parseFloat(document.getElementById('m-entry').value);
   const exit  = parseFloat(document.getElementById('m-exit').value);
@@ -1276,6 +1841,7 @@ function saveNotes() {
 
   renderTable();
   if (state.gsUrl) pushToSheet(trade);
+  updateTradeNotesInSupabase(trade);
   toast('Notes saved!', 'success');
 }
 
@@ -1833,31 +2399,395 @@ function toggleHelp() {
   btn.style.color = open ? 'var(--accent)' : 'var(--muted)';
 }
 
-// ══ INIT ══════════════════════════════════════════════════════════
-(function init() {
-  // Restore saved settings from localStorage
-  const savedUrl      = localStorage.getItem('chartd_gsUrl')   || '';
-  const savedMaxLoss  = parseFloat(localStorage.getItem('chartd_maxLoss')) || 1000;
 
+// ══ MOBILE UI ═════════════════════════════════════════════════════
+function toggleSidebar() {
+  const sidebar  = document.querySelector('.sidebar');
+  const backdrop = document.getElementById('drawer-backdrop');
+  const isOpen   = sidebar.classList.contains('open');
+  if (isOpen) { closeSidebar(); }
+  else {
+    sidebar.classList.add('open');
+    backdrop.classList.add('show');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeSidebar() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('drawer-backdrop').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+function openMobileImport() {
+  document.getElementById('mobile-import-sheet').classList.add('open');
+  document.getElementById('drawer-backdrop').classList.add('show');
+}
+
+function closeMobileImport() {
+  document.getElementById('mobile-import-sheet').classList.remove('open');
+  document.getElementById('drawer-backdrop').classList.remove('show');
+}
+
+// Close sidebar on desktop resize
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 768) closeSidebar();
+});
+
+function openMobileAddTrade() {
+  document.getElementById('mobile-add-trade-sheet').classList.add('open');
+  document.getElementById('drawer-backdrop').classList.add('show');
+  // Sync values from desktop fields
+  const curInst = document.getElementById('m-inst').value;
+  document.getElementById('m-inst-mob').value = curInst;
+  document.getElementById('m-dir-mob').value  = document.getElementById('m-dir').value;
+}
+
+function closeMobileAddTrade() {
+  document.getElementById('mobile-add-trade-sheet').classList.remove('open');
+  document.getElementById('drawer-backdrop').classList.remove('show');
+}
+
+function addManualTradeMobile() {
+  const inst  = document.getElementById('m-inst-mob').value.trim().toUpperCase();
+  const dir   = document.getElementById('m-dir-mob').value;
+  const entry = parseFloat(document.getElementById('m-entry-mob').value);
+  const exit_ = parseFloat(document.getElementById('m-exit-mob').value);
+  const stopRaw = document.getElementById('m-stop-mob').value.trim();
+  const stop  = stopRaw ? parseFloat(stopRaw) : null;
+  const contracts = parseInt(document.getElementById('m-contracts-mob').value) || 1;
+
+  if (!entry || !exit_) { toast('Enter entry and exit prices', 'error'); return; }
+
+  addTrade({ id: 'manual-' + Date.now(), inst, direction: dir, contracts, entry, exit: exit_, stop, source: 'manual' });
+
+  // Clear fields
+  document.getElementById('m-entry-mob').value = '';
+  document.getElementById('m-exit-mob').value  = '';
+  document.getElementById('m-stop-mob').value  = '';
+  closeMobileAddTrade();
+}
+
+
+// ══ SUPABASE ══════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://tzubibqknyoidnfjzsyd.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR6dWJpYnFrbnlvaWRuZmp6c3lkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3OTg0NzIsImV4cCI6MjA4OTM3NDQ3Mn0.il3q_py2BabCRfLg53_4Dr8o_2xjy4CLewbnDIiof_0';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let authMode = 'signin';
+
+// ── AUTH UI ────────────────────────────────────────────────────────
+function switchAuthTab(mode) {
+  authMode = mode;
+  document.querySelectorAll('.auth-tab').forEach((t,i) => {
+    t.classList.toggle('active', (mode === 'signin' && i === 0) || (mode === 'signup' && i === 1));
+  });
+  document.getElementById('auth-confirm-wrap').style.display = mode === 'signup' ? 'block' : 'none';
+  document.getElementById('auth-btn').textContent = mode === 'signin' ? 'SIGN IN →' : 'CREATE ACCOUNT →';
+  document.getElementById('auth-forgot').style.display = mode === 'signin' ? 'block' : 'none';
+  clearAuthMessages();
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('auth-success').style.display = 'none';
+}
+
+function showAuthSuccess(msg) {
+  const el = document.getElementById('auth-success');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('auth-error').style.display = 'none';
+}
+
+function clearAuthMessages() {
+  document.getElementById('auth-error').style.display = 'none';
+  document.getElementById('auth-success').style.display = 'none';
+}
+
+function toggleGsSetup() {
+  const panel = document.getElementById('gs-setup-panel');
+  const arrow = document.getElementById('gs-toggle-arrow');
+  const open  = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  arrow.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+}
+
+function toggleAuthHelp() {
+  const panel = document.getElementById('auth-help-panel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+async function handleAuth() {
+  const email    = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const confirm  = document.getElementById('auth-confirm').value;
+  const btn      = document.getElementById('auth-btn');
+
+  if (!email || !password) { showAuthError('Please enter your email and password.'); return; }
+  if (authMode === 'signup' && password !== confirm) { showAuthError('Passwords do not match.'); return; }
+  if (password.length < 6) { showAuthError('Password must be at least 6 characters.'); return; }
+
+  btn.disabled = true;
+  btn.textContent = authMode === 'signin' ? 'SIGNING IN...' : 'CREATING ACCOUNT...';
+  clearAuthMessages();
+
+  try {
+    let result;
+    if (authMode === 'signin') {
+      result = await sb.auth.signInWithPassword({ email, password });
+    } else {
+      result = await sb.auth.signUp({ email, password });
+    }
+
+    if (result.error) throw result.error;
+
+    if (authMode === 'signup' && !result.data.session) {
+      showAuthSuccess('Account created! Check your email to confirm, then sign in.');
+      btn.disabled = false;
+      btn.textContent = 'CREATE ACCOUNT →';
+      return;
+    }
+
+    // Signed in successfully
+    const gsUrl = document.getElementById('gs-url').value.trim();
+    if (gsUrl) {
+      localStorage.setItem('chartd_gsUrl', gsUrl);
+      state.gsUrl = gsUrl;
+    }
+    await onSignedIn(result.data.user);
+
+  } catch(e) {
+    showAuthError(e.message || 'Something went wrong. Please try again.');
+    btn.disabled = false;
+    btn.textContent = authMode === 'signin' ? 'SIGN IN →' : 'CREATE ACCOUNT →';
+  }
+}
+
+async function handleForgot() {
+  const email = document.getElementById('auth-email').value.trim();
+  if (!email) { showAuthError('Enter your email address first.'); return; }
+  const { error } = await sb.auth.resetPasswordForEmail(email);
+  if (error) { showAuthError(error.message); }
+  else { showAuthSuccess('Password reset email sent! Check your inbox.'); }
+}
+
+async function onSignedIn(user) {
+  currentUser = user;
+  document.getElementById('auth-screen').style.display = 'none';
+
+  // Show user badge in header
+  const badge = document.getElementById('user-badge');
+  if (badge) {
+    badge.style.display = 'flex';
+    document.getElementById('user-email-display').textContent = user.email.split('@')[0];
+  }
+
+  // Restore settings
+  const savedUrl     = localStorage.getItem('chartd_gsUrl') || '';
+  const savedMaxLoss = parseFloat(localStorage.getItem('chartd_maxLoss')) || 1000;
   state.gsUrl   = savedUrl;
   state.maxLoss = savedMaxLoss;
+  if (savedUrl) setStatus('gs', 'connected', 'Sheet: On');
+  setStatus('tv', 'connected', 'Ready');
 
-  // Pre-fill setup screen fields
-  if (savedUrl) document.getElementById('gs-url').value = savedUrl;
+  // Load trades from Supabase
+  await loadTradesFromSupabase();
+
+  addLog(`Signed in as ${user.email}`, 'ok');
+  toast(`Welcome back!`, 'success');
+}
+
+async function signOut() {
+  await sb.auth.signOut();
+  currentUser = null;
+  state.trades = [];
+  renderTable();
+  updateStats();
+  updateTradeSelect();
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('user-badge').style.display = 'none';
+  toast('Signed out', 'info');
+}
+
+function showSettings() {
+  const choice = confirm('CHARTD JOURNAL SETTINGS\n\nGoogle Sheet URL: ' + (state.gsUrl || 'not connected') + '\n\nOK = Update Google Sheet URL\nCancel = Sign Out');
+  if (choice) {
+    const newUrl = prompt('Paste your Apps Script URL (leave blank to remove):', state.gsUrl || '');
+    if (newUrl !== null) {
+      state.gsUrl = newUrl.trim();
+      localStorage.setItem('chartd_gsUrl', state.gsUrl);
+      if (state.gsUrl) { setStatus('gs', 'connected', 'Sheet: On'); toast('Google Sheet connected', 'success'); }
+      else { setStatus('gs', 'error', 'Sheet: Off'); toast('Google Sheet removed', 'info'); }
+    }
+  } else {
+    if (confirm('Sign out of Chartd Journal?')) signOut();
+  }
+}
+
+// ── SUPABASE TRADE STORAGE ─────────────────────────────────────────
+async function saveTradeToSupabase(trade) {
+  if (!currentUser) return;
+  try {
+    const { error } = await sb.from('trades').upsert({
+      id:             trade.supabaseId || undefined,
+      user_id:        currentUser.id,
+      date:           trade.time.toLocaleDateString('en-US'),
+      session:        getSession(trade.time),
+      instrument:     trade.inst,
+      direction:      trade.direction,
+      contracts:      trade.contracts,
+      entry_price:    trade.entry,
+      exit_price:     trade.exit,
+      stop_price:     trade.stop || null,
+      stop_dist:      trade.stopDist || null,
+      gross_pnl:      parseFloat(trade.gross.toFixed(2)),
+      commission:     parseFloat(trade.comm.toFixed(2)),
+      net_pnl:        parseFloat(trade.net.toFixed(2)),
+      r_multiple:     trade.r != null ? parseFloat(trade.r.toFixed(2)) : null,
+      rules_followed: trade.rules || null,
+      emotion_in:     trade.emoIn || null,
+      emotion_out:    trade.emoOut || null,
+      setup:          trade.setup || null,
+      went_right:     trade.right || null,
+      went_wrong:     trade.wrong || null,
+      lesson:         trade.lesson || null,
+      source:         trade.source || 'manual'
+    }, { onConflict: 'id' });
+
+    if (error) { addLog('Supabase save error: ' + error.message, 'err'); }
+    else { addLog(`Cloud saved: ${trade.inst} ${trade.direction}`, 'ok'); }
+  } catch(e) {
+    addLog('Supabase error: ' + e.message, 'err');
+  }
+}
+
+async function loadTradesFromSupabase() {
+  if (!currentUser) return;
+  try {
+    addLog('Loading trades from cloud...', 'info');
+    const { data, error } = await sb
+      .from('trades')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false })
+      .limit(500);
+
+    if (error) throw error;
+
+    if (data && data.length > 0) {
+      state.trades = data.map(row => ({
+        id:         row.id,
+        supabaseId: row.id,
+        inst:       row.instrument,
+        direction:  row.direction,
+        contracts:  row.contracts,
+        entry:      row.entry_price,
+        exit:       row.exit_price,
+        stop:       row.stop_price || 0,
+        stopDist:   row.stop_dist || 0,
+        gross:      row.gross_pnl,
+        comm:       row.commission,
+        net:        row.net_pnl,
+        r:          row.r_multiple,
+        time:       new Date(row.created_at),
+        rules:      row.rules_followed || '',
+        setup:      row.setup || '',
+        emoIn:      row.emotion_in || 5,
+        emoOut:     row.emotion_out || 5,
+        right:      row.went_right || '',
+        wrong:      row.went_wrong || '',
+        lesson:     row.lesson || '',
+        source:     row.source || '',
+        partials:   [],
+        isPosition: false,
+        expanded:   false
+      }));
+      renderTable();
+      updateStats();
+      updateTradeSelect();
+      addLog(`Loaded ${data.length} trades from cloud`, 'ok');
+    } else {
+      addLog('No trades found — import a CSV to get started', 'info');
+    }
+  } catch(e) {
+    addLog('Failed to load trades: ' + e.message, 'err');
+  }
+}
+
+async function updateTradeNotesInSupabase(trade) {
+  if (!currentUser || !trade.supabaseId) return;
+  try {
+    await sb.from('trades').update({
+      rules_followed: trade.rules || null,
+      emotion_in:     trade.emoIn || null,
+      emotion_out:    trade.emoOut || null,
+      setup:          trade.setup || null,
+      went_right:     trade.right || null,
+      went_wrong:     trade.wrong || null,
+      lesson:         trade.lesson || null
+    }).eq('id', trade.supabaseId);
+  } catch(e) {
+    addLog('Note save error: ' + e.message, 'err');
+  }
+}
+
+// ══ INIT ══════════════════════════════════════════════════════════
+(async function init() {
+  // Restore max loss
+  const savedMaxLoss = parseFloat(localStorage.getItem('chartd_maxLoss')) || 1000;
+  state.maxLoss = savedMaxLoss;
   const mlInline = document.getElementById('max-loss-inline');
   if (mlInline) mlInline.value = savedMaxLoss;
 
-  if (savedUrl) {
-    // Already configured — skip setup screen, go straight to journal
-    document.getElementById('setup-screen').style.display = 'none';
-    setStatus('gs', 'connected', 'Sheet: On');
-    setStatus('tv', 'connected', 'Ready');
-    addLog('Chartd Journal ready — sheet connected', 'ok');
+  // Pre-fill GS url in auth screen
+  const savedUrl = localStorage.getItem('chartd_gsUrl') || '';
+  if (savedUrl) document.getElementById('gs-url').value = savedUrl;
+
+  // Check if user is already signed in
+  const { data: { session } } = await sb.auth.getSession();
+
+  if (session) {
+    // Already logged in — skip auth screen
+    await onSignedIn(session.user);
   } else {
-    // First time — show setup screen
-    document.getElementById('setup-screen').style.display = 'flex';
+    // Show auth screen
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('setup-screen').style.display = 'none';
   }
+
+  // Listen for auth state changes
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT') {
+      document.getElementById('auth-screen').style.display = 'flex';
+    }
+  });
 })();
 </script>
+<!-- Mobile Bottom Nav -->
+<nav class="mobile-bottom-nav">
+  <button class="mobile-nav-btn" onclick="toggleSidebar()">
+    <span class="mobile-nav-icon">☰</span>
+    <span>Menu</span>
+  </button>
+  <button class="mobile-nav-btn" onclick="openMobileImport()">
+    <span class="mobile-nav-icon">📂</span>
+    <span>Import</span>
+  </button>
+  <button class="mobile-nav-btn push-btn" onclick="openMobileAddTrade()">
+    <span class="mobile-nav-icon">+</span>
+    <span>Add Trade</span>
+  </button>
+  <button class="mobile-nav-btn" onclick="exportCSV()">
+    <span class="mobile-nav-icon">↓</span>
+    <span>Export</span>
+  </button>
+  <button class="mobile-nav-btn" onclick="showSetup()">
+    <span class="mobile-nav-icon">⚙</span>
+    <span>Settings</span>
+  </button>
+</nav>
+
 </body>
 </html>
