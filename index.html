@@ -1529,6 +1529,95 @@
   thead th.sortable:hover { color: var(--accent); }
   thead th.sort-asc::after  { content: ' ▲'; color: var(--accent); font-size: 9px; }
   thead th.sort-desc::after { content: ' ▼'; color: var(--accent); font-size: 9px; }
+
+  /* Dashboard filters */
+  .dash-filters {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 20px;
+  }
+  .dash-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+  }
+  .dash-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 120px;
+  }
+  .dash-filter-group.wide { min-width: 160px; }
+  .dash-filter-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .dash-filter-group select,
+  .dash-filter-group input[type="date"] {
+    padding: 7px 10px;
+    font-size: 12px;
+    margin: 0;
+    height: auto;
+  }
+  .dash-filter-clear {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 7px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+    align-self: flex-end;
+  }
+  .dash-filter-clear:hover { border-color: var(--accent); color: var(--accent); }
+  .dash-filter-active { border-color: rgba(0,229,160,0.4) !important; }
+
+  /* Day of week / session breakdown tables */
+  .breakdown-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .breakdown-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .breakdown-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+  }
+  .breakdown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .breakdown-row:last-child { border-bottom: none; }
+  .breakdown-label { color: var(--muted); font-family: var(--mono); font-size: 11px; }
+  .breakdown-val { font-weight: 700; }
+
+  @media (max-width: 768px) {
+    .dash-filter-row { gap: 8px; }
+    .dash-filter-group { min-width: 100%; }
+    .breakdown-grid { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
@@ -1857,25 +1946,103 @@ function doGet(e) {<br/>
 
     <!-- ── DASHBOARD VIEW ──────────────────────────────────────── -->
     <div class="dashboard" id="view-dashboard">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:20px;">
-        <div class="dash-range-tabs" style="margin-bottom:0;">
-          <button class="dash-range-btn active" onclick="setDashRange('week',this)">This Week</button>
-          <button class="dash-range-btn" onclick="setDashRange('month',this)">This Month</button>
-          <button class="dash-range-btn" onclick="setDashRange('all',this)">All Time</button>
+      <!-- Dashboard Filters -->
+      <div class="dash-filters" id="dash-filters">
+        <div class="dash-filter-row">
+
+          <!-- Time range -->
+          <div class="dash-filter-group">
+            <div class="dash-filter-label">Time Range</div>
+            <select id="df-range" onchange="applyDashFilters()">
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+              <option value="all">All Time</option>
+              <option value="custom">Custom Range</option>
+            </select>
+          </div>
+
+          <!-- Custom date range — hidden unless custom selected -->
+          <div class="dash-filter-group wide" id="df-custom-wrap" style="display:none;">
+            <div class="dash-filter-label">From</div>
+            <input type="date" id="df-from" onchange="applyDashFilters()"/>
+          </div>
+          <div class="dash-filter-group wide" id="df-custom-wrap2" style="display:none;">
+            <div class="dash-filter-label">To</div>
+            <input type="date" id="df-to" onchange="applyDashFilters()"/>
+          </div>
+
+          <!-- Source -->
+          <div class="dash-filter-group">
+            <div class="dash-filter-label">Source</div>
+            <select id="df-source" onchange="applyDashFilters()">
+              <option value="both">All</option>
+              <option value="futures">Futures</option>
+              <option value="options">Options</option>
+            </select>
+          </div>
+
+          <!-- Instrument -->
+          <div class="dash-filter-group">
+            <div class="dash-filter-label">Instrument</div>
+            <select id="df-inst" onchange="applyDashFilters()">
+              <option value="all">All</option>
+            </select>
+          </div>
+
+          <!-- Direction -->
+          <div class="dash-filter-group">
+            <div class="dash-filter-label">Direction</div>
+            <select id="df-dir" onchange="applyDashFilters()">
+              <option value="all">All</option>
+              <option value="Long">Long only</option>
+              <option value="Short">Short only</option>
+            </select>
+          </div>
+
+          <!-- Session -->
+          <div class="dash-filter-group">
+            <div class="dash-filter-label">Session</div>
+            <select id="df-session" onchange="applyDashFilters()">
+              <option value="all">All Day</option>
+              <option value="am">AM (before 12pm)</option>
+              <option value="pm">PM (12pm+)</option>
+            </select>
+          </div>
+
+          <!-- Account -->
+          <div class="dash-filter-group" id="df-acct-wrap" style="display:none;">
+            <div class="dash-filter-label">Account</div>
+            <select id="df-acct" onchange="applyDashFilters()">
+              <option value="all">All Accounts</option>
+            </select>
+          </div>
+
+          <!-- Day of week -->
+          <div class="dash-filter-group">
+            <div class="dash-filter-label">Day</div>
+            <select id="df-dow" onchange="applyDashFilters()">
+              <option value="all">All Days</option>
+              <option value="1">Monday</option>
+              <option value="2">Tuesday</option>
+              <option value="3">Wednesday</option>
+              <option value="4">Thursday</option>
+              <option value="5">Friday</option>
+            </select>
+          </div>
+
+          <button class="dash-filter-clear" onclick="clearDashFilters()">✕ Clear</button>
         </div>
-        <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;">
-          <button id="dsrc-btn-both" onclick="setDashSource('both',this)"
-            style="padding:8px 14px;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;border:none;cursor:pointer;background:var(--accent);color:#080c12;transition:all 0.15s;">
-            All
-          </button>
-          <button id="dsrc-btn-futures" onclick="setDashSource('futures',this)"
-            style="padding:8px 14px;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;border:none;cursor:pointer;background:var(--surface2);color:var(--muted);transition:all 0.15s;">
-            Futures
-          </button>
-          <button id="dsrc-btn-options" onclick="setDashSource('options',this)"
-            style="padding:8px 14px;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;border:none;cursor:pointer;background:var(--surface2);color:var(--muted);transition:all 0.15s;">
-            Options
-          </button>
+      </div>
+
+      <!-- Breakdown section (day of week + session) -->
+      <div class="breakdown-grid" id="dash-breakdown" style="display:none;">
+        <div class="breakdown-card">
+          <div class="breakdown-title">P&L BY DAY OF WEEK</div>
+          <div id="breakdown-dow"></div>
+        </div>
+        <div class="breakdown-card">
+          <div class="breakdown-title">P&L BY SESSION</div>
+          <div id="breakdown-session"></div>
         </div>
       </div>
       <div class="dash-stats">
@@ -1895,9 +2062,9 @@ function doGet(e) {<br/>
           <div class="dash-stat-sub">wins / losses</div>
         </div>
         <div class="dash-stat acc">
-          <div class="dash-stat-label">Avg Win / Avg Loss</div>
+          <div class="dash-stat-label">Largest Trade</div>
           <div class="dash-stat-value acc" id="dstat-r">—</div>
-          <div class="dash-stat-sub" id="dstat-r-sub">— / —</div>
+          <div class="dash-stat-sub" id="dstat-r-sub">largest loss</div>
         </div>
       </div>
       <div class="dash-charts">
@@ -1978,9 +2145,9 @@ function doGet(e) {<br/>
           <div class="dash-stat-sub">gross wins / losses</div>
         </div>
         <div class="dash-stat acc">
-          <div class="dash-stat-label">Avg Win / Avg Loss</div>
+          <div class="dash-stat-label">Largest Trade</div>
           <div class="dash-stat-value acc" id="fut-stat-r">—</div>
-          <div class="dash-stat-sub" id="fut-stat-r-sub">— / —</div>
+          <div class="dash-stat-sub" id="fut-stat-r-sub">largest loss</div>
         </div>
       </div>
 
@@ -3627,46 +3794,79 @@ function setDashSource(source, btn) {
 function getFilteredTrades() {
   // Source filter
   let all = state.trades;
-  if (dashSource === 'options') {
-    // options trades live in state.optionTrades, map to common shape
-    all = (state.optionTrades || []).map(t => ({
-      ...t,
-      inst: t.underlying,
-      r: null,
-      gross: t.net,
-      comm: 0,
-      time: t.time instanceof Date ? t.time : new Date(t.time || Date.now())
-    }));
-  } else if (dashSource === 'both') {
-    const optMapped = (state.optionTrades || []).map(t => ({
-      ...t,
-      inst: t.underlying,
-      r: null,
-      gross: t.net,
-      comm: 0,
-      time: t.time instanceof Date ? t.time : new Date(t.time || Date.now())
-    }));
-    all = [...state.trades, ...optMapped];
+  const src = dashFilters.source || dashSource || 'both';
+  if (src === 'options') {
+    all = (state.optionTrades || []).map(function(t) {
+      return Object.assign({}, t, { inst: t.underlying, r: null, gross: t.net, comm: 0,
+        time: t.time instanceof Date ? t.time : new Date(t.time || Date.now()) });
+    });
+  } else if (src === 'both') {
+    const optMapped = (state.optionTrades || []).map(function(t) {
+      return Object.assign({}, t, { inst: t.underlying, r: null, gross: t.net, comm: 0,
+        time: t.time instanceof Date ? t.time : new Date(t.time || Date.now()) });
+    });
+    all = state.trades.concat(optMapped);
   }
 
-  if (dashRange === 'all') return all;
-  const now  = new Date();
-  const start = new Date();
-  if (dashRange === 'week') {
-    const day = now.getDay();
-    start.setDate(now.getDate() - day); // back to Sunday
-    start.setHours(12,0,0,0); // noon Sunday
-  } else if (dashRange === 'month') {
-    start.setDate(1); start.setHours(0,0,0,0);
+  // Date range filter
+  const range = dashFilters.range || 'week';
+  if (range !== 'all') {
+    const now = new Date();
+    let start = new Date();
+    let end   = new Date(now.getTime() + 86400000);
+    if (range === 'week') {
+      start = new Date(); start.setDate(now.getDate() - now.getDay()); start.setHours(12,0,0,0);
+    } else if (range === 'month') {
+      start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+    } else if (range === 'custom') {
+      start = dashFilters.from ? new Date(dashFilters.from + 'T00:00:00') : new Date(0);
+      end   = dashFilters.to   ? new Date(dashFilters.to   + 'T23:59:59') : new Date();
+    }
+    all = all.filter(function(t) {
+      const d = t.time instanceof Date ? t.time : new Date(t.time);
+      return d >= start && d <= end;
+    });
   }
-  return all.filter(t => {
-    const d = t.time instanceof Date ? t.time : new Date(t.time);
-    return d >= start;
-  });
+
+  // Instrument filter
+  if (dashFilters.inst && dashFilters.inst !== 'all') {
+    all = all.filter(function(t) { return (t.inst || '') === dashFilters.inst; });
+  }
+
+  // Direction filter
+  if (dashFilters.dir && dashFilters.dir !== 'all') {
+    all = all.filter(function(t) { return t.direction === dashFilters.dir; });
+  }
+
+  // Session filter
+  if (dashFilters.session && dashFilters.session !== 'all') {
+    all = all.filter(function(t) {
+      const d = t.time instanceof Date ? t.time : new Date(t.time);
+      const hr = d.getHours();
+      return dashFilters.session === 'am' ? hr < 12 : hr >= 12;
+    });
+  }
+
+  // Account filter
+  if (dashFilters.acct && dashFilters.acct !== 'all') {
+    all = all.filter(function(t) { return (t.acct || 'default') === dashFilters.acct; });
+  }
+
+  // Day of week filter
+  if (dashFilters.dow && dashFilters.dow !== 'all') {
+    const dowNum = parseInt(dashFilters.dow);
+    all = all.filter(function(t) {
+      const d = t.time instanceof Date ? t.time : new Date(t.time);
+      return d.getDay() === dowNum;
+    });
+  }
+
+  return all;
 }
 
 function renderDashboard() {
   try {
+  buildDashFilterOptions();
   const trades = getFilteredTrades();
   const wins   = trades.filter(t => t.net > 0);
   const losses = trades.filter(t => t.net < 0);
@@ -3689,16 +3889,17 @@ function renderDashboard() {
   document.getElementById('dstat-wr').textContent = wr != null ? wr.toFixed(1) + '%' : '—';
   document.getElementById('dstat-wr-sub').textContent = wins.length + 'W / ' + losses.length + 'L';
   document.getElementById('dstat-pf').textContent = pf != null ? pf.toFixed(2) : '—';
-  const avgWinStr  = avgWin  != null ? '+$' + avgWin.toFixed(2)  : '—';
-  const avgLossStr = avgLoss != null ? '-$' + Math.abs(avgLoss).toFixed(2) : '—';
-  document.getElementById('dstat-r').textContent = avgWinStr;
+  const bigWin  = wins.length  > 0 ? Math.max(...wins.map(t => t.net||0))   : null;
+  const bigLoss = losses.length > 0 ? Math.min(...losses.map(t => t.net||0)) : null;
+  document.getElementById('dstat-r').textContent = bigWin != null ? '+$' + bigWin.toFixed(2) : '—';
   const dRSub = document.getElementById('dstat-r-sub');
-  if (dRSub) dRSub.textContent = avgLossStr + ' avg loss';
+  if (dRSub) dRSub.textContent = bigLoss != null ? '-$' + Math.abs(bigLoss).toFixed(2) + ' largest loss' : '—';
   document.getElementById('chart-pnl-total').textContent = (totalNet >= 0 ? '+' : '') + '$' + totalNet.toFixed(2);
 
   renderPnLChart(trades);
   renderWLChart(wins.length, losses.length);
   renderCalendar();
+  renderBreakdowns(trades);
   } catch(e) { console.warn('renderDashboard error:', e); }
 }
 
@@ -4370,11 +4571,11 @@ function updateFuturesSummary() {
   document.getElementById('fut-stat-wr').textContent = wr != null ? wr.toFixed(1) + '%' : '—';
   document.getElementById('fut-stat-wl').textContent = wins.length + 'W / ' + losses.length + 'L';
   document.getElementById('fut-stat-pf').textContent = pf != null ? pf.toFixed(2) : '—';
-  const futWinStr  = avgWinF  != null ? '+$' + avgWinF.toFixed(2)  : '—';
-  const futLossStr = avgLossF != null ? '-$' + Math.abs(avgLossF).toFixed(2) : '—';
-  document.getElementById('fut-stat-r').textContent = futWinStr;
+  const bigWinF  = wins.length  > 0 ? Math.max(...wins.map(t => t.net||0))   : null;
+  const bigLossF = losses.length > 0 ? Math.min(...losses.map(t => t.net||0)) : null;
+  document.getElementById('fut-stat-r').textContent = bigWinF != null ? '+$' + bigWinF.toFixed(2) : '—';
   const futRSub = document.getElementById('fut-stat-r-sub');
-  if (futRSub) futRSub.textContent = futLossStr + ' avg loss';
+  if (futRSub) futRSub.textContent = bigLossF != null ? '-$' + Math.abs(bigLossF).toFixed(2) + ' largest loss' : '—';
 }
 
 
@@ -4421,6 +4622,144 @@ function setAcct(acct) {
 function getFilteredFutures() {
   if (activeAcct === 'all') return state.trades;
   return state.trades.filter(function(t) { return (t.acct || 'default') === activeAcct; });
+}
+
+
+// == DASHBOARD FILTERS ==
+const dashFilters = {
+  range:   'week',
+  source:  'both',
+  inst:    'all',
+  dir:     'all',
+  session: 'all',
+  acct:    'all',
+  dow:     'all',
+  from:    null,
+  to:      null
+};
+
+function applyDashFilters() {
+  const range   = document.getElementById('df-range').value;
+  const source  = document.getElementById('df-source').value;
+  const inst    = document.getElementById('df-inst').value;
+  const dir     = document.getElementById('df-dir').value;
+  const session = document.getElementById('df-session').value;
+  const acct    = document.getElementById('df-acct') ? document.getElementById('df-acct').value : 'all';
+  const dow     = document.getElementById('df-dow').value;
+
+  dashFilters.range   = range;
+  dashFilters.source  = source;
+  dashFilters.inst    = inst;
+  dashFilters.dir     = dir;
+  dashFilters.session = session;
+  dashFilters.acct    = acct;
+  dashFilters.dow     = dow;
+  dashSource = source; // keep in sync
+
+  // Show/hide custom date inputs
+  const showCustom = range === 'custom';
+  document.getElementById('df-custom-wrap').style.display  = showCustom ? 'flex' : 'none';
+  document.getElementById('df-custom-wrap2').style.display = showCustom ? 'flex' : 'none';
+  if (showCustom) {
+    dashFilters.from = document.getElementById('df-from').value || null;
+    dashFilters.to   = document.getElementById('df-to').value   || null;
+  }
+
+  // Show breakdown when dow or session is filtered
+  const showBreakdown = dow === 'all' && session === 'all' && inst === 'all' && dir === 'all' && acct === 'all';
+  document.getElementById('dash-breakdown').style.display = !showBreakdown ? 'none' : 'grid';
+
+  renderDashboard();
+}
+
+function clearDashFilters() {
+  document.getElementById('df-range').value   = 'week';
+  document.getElementById('df-source').value  = 'both';
+  document.getElementById('df-inst').value    = 'all';
+  document.getElementById('df-dir').value     = 'all';
+  document.getElementById('df-session').value = 'all';
+  document.getElementById('df-dow').value     = 'all';
+  if (document.getElementById('df-acct')) document.getElementById('df-acct').value = 'all';
+  document.getElementById('df-custom-wrap').style.display  = 'none';
+  document.getElementById('df-custom-wrap2').style.display = 'none';
+  Object.assign(dashFilters, { range:'week', source:'both', inst:'all', dir:'all', session:'all', acct:'all', dow:'all', from:null, to:null });
+  dashSource = 'both';
+  renderDashboard();
+}
+
+function buildDashFilterOptions() {
+  // Instruments
+  const instSel = document.getElementById('df-inst');
+  if (instSel) {
+    const insts = [...new Set(state.trades.map(function(t) { return t.inst || ''; }).filter(Boolean))].sort();
+    const curInst = instSel.value;
+    instSel.innerHTML = '<option value="all">All</option>' + insts.map(function(i) {
+      return '<option value="' + i + '">' + i + '</option>';
+    }).join('');
+    if (insts.includes(curInst)) instSel.value = curInst;
+  }
+  // Accounts
+  const accts = [...new Set(state.trades.map(function(t) { return t.acct || 'default'; }))].sort();
+  const acctWrap = document.getElementById('df-acct-wrap');
+  const acctSel  = document.getElementById('df-acct');
+  if (acctWrap && acctSel) {
+    if (accts.length > 1) {
+      acctWrap.style.display = 'flex';
+      const curAcct = acctSel.value;
+      acctSel.innerHTML = '<option value="all">All Accounts</option>' + accts.map(function(a) {
+        return '<option value="' + a + '">' + (a === 'default' ? 'Account 1' : a) + '</option>';
+      }).join('');
+      if (accts.includes(curAcct)) acctSel.value = curAcct;
+    } else {
+      acctWrap.style.display = 'none';
+    }
+  }
+}
+
+function renderBreakdowns(trades) {
+  // Day of week breakdown
+  const dowNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const dowPnL = {};
+  trades.forEach(function(t) {
+    const d = t.time instanceof Date ? t.time : new Date(t.time);
+    const day = d.getDay();
+    if (!dowPnL[day]) dowPnL[day] = { net: 0, count: 0 };
+    dowPnL[day].net += t.net || 0;
+    dowPnL[day].count++;
+  });
+  const dowEl = document.getElementById('breakdown-dow');
+  if (dowEl) {
+    dowEl.innerHTML = [1,2,3,4,5].map(function(d) {
+      const data = dowPnL[d] || { net: 0, count: 0 };
+      const cls  = data.net > 0 ? 'pnl-pos' : data.net < 0 ? 'pnl-neg' : '';
+      return '<div class="breakdown-row">' +
+        '<span class="breakdown-label">' + dowNames[d] + ' (' + data.count + ')</span>' +
+        '<span class="breakdown-val ' + cls + '">' + (data.net >= 0 ? '+' : '') + '$' + data.net.toFixed(2) + '</span>' +
+        '</div>';
+    }).join('');
+  }
+  // Session breakdown
+  const sessPnL = { am: { net: 0, count: 0 }, pm: { net: 0, count: 0 } };
+  trades.forEach(function(t) {
+    const d = t.time instanceof Date ? t.time : new Date(t.time);
+    const key = d.getHours() < 12 ? 'am' : 'pm';
+    sessPnL[key].net += t.net || 0;
+    sessPnL[key].count++;
+  });
+  const sessEl = document.getElementById('breakdown-session');
+  if (sessEl) {
+    sessEl.innerHTML = [
+      { key:'am', label:'AM Session' },
+      { key:'pm', label:'PM Session' }
+    ].map(function(s) {
+      const data = sessPnL[s.key];
+      const cls  = data.net > 0 ? 'pnl-pos' : data.net < 0 ? 'pnl-neg' : '';
+      return '<div class="breakdown-row">' +
+        '<span class="breakdown-label">' + s.label + ' (' + data.count + ')</span>' +
+        '<span class="breakdown-val ' + cls + '">' + (data.net >= 0 ? '+' : '') + '$' + data.net.toFixed(2) + '</span>' +
+        '</div>';
+    }).join('');
+  }
 }
 
 // == INIT ==
