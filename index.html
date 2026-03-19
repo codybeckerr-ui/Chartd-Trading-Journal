@@ -1895,9 +1895,9 @@ function doGet(e) {<br/>
           <div class="dash-stat-sub">wins / losses</div>
         </div>
         <div class="dash-stat acc">
-          <div class="dash-stat-label">Avg R</div>
+          <div class="dash-stat-label">Avg Win / Avg Loss</div>
           <div class="dash-stat-value acc" id="dstat-r">—</div>
-          <div class="dash-stat-sub">per trade</div>
+          <div class="dash-stat-sub" id="dstat-r-sub">— / —</div>
         </div>
       </div>
       <div class="dash-charts">
@@ -1978,9 +1978,9 @@ function doGet(e) {<br/>
           <div class="dash-stat-sub">gross wins / losses</div>
         </div>
         <div class="dash-stat acc">
-          <div class="dash-stat-label">Avg R</div>
+          <div class="dash-stat-label">Avg Win / Avg Loss</div>
           <div class="dash-stat-value acc" id="fut-stat-r">—</div>
-          <div class="dash-stat-sub">per trade</div>
+          <div class="dash-stat-sub" id="fut-stat-r-sub">— / —</div>
         </div>
       </div>
 
@@ -2257,8 +2257,9 @@ function addPosition(p) {
 
   // Position totals — use CSV P&L if available, otherwise calculate
   const totalGross = p.csvPnl != null ? p.csvPnl : partials.reduce((s, x) => s + x.gross, 0);
-  const totalComm  = p.csvPnl != null ? 0 : partials.reduce((s, x) => s + x.comm,  0);
-  const totalNet   = p.csvPnl != null ? p.csvPnl : partials.reduce((s, x) => s + x.net,   0);
+  const csvComm    = p.comm   != null ? p.comm   : null;
+  const totalComm  = p.csvPnl != null ? 0 : (csvComm != null ? csvComm : partials.reduce((s, x) => s + x.comm, 0));
+  const totalNet   = p.csvPnl != null ? p.csvPnl : totalGross - totalComm;
   const stopDist   = (p.stop != null && p.stop !== 0) ? Math.abs(p.avgEntry - p.stop) : 0;
   const rVal       = stopDist > 0 ? totalNet / (stopDist * pv * p.totalContracts) : null;
 
@@ -2538,8 +2539,10 @@ function renderTable() {
       ? '<span class="position-toggle" onclick="event.stopPropagation();togglePosition(\'' + t.id + '\')">' + (t.expanded ? '−' : '+') + '</span>'
       : '';
     const avgBadge    = hasPartials ? '<span class="avg-badge">AVG</span>' : '';
-    const entryDisplay = hasPartials ? t.avgEntry.toFixed(2) + avgBadge : t.entry.toFixed(2);
-    const exitDisplay  = hasPartials ? t.avgExit.toFixed(2)  + avgBadge : t.exit.toFixed(2);
+    const avgEntry = t.avgEntry != null ? t.avgEntry : t.entry;
+    const avgExit  = t.avgExit  != null ? t.avgExit  : t.exit;
+    const entryDisplay = hasPartials ? avgEntry.toFixed(2) + avgBadge : (t.entry || 0).toFixed(2);
+    const exitDisplay  = hasPartials ? avgExit.toFixed(2)  + avgBadge : (t.exit  || 0).toFixed(2);
     const timeDisplay  = hasPartials ? entryStr + '–' + timeStr : timeStr;
     const onclickAttr  = hasPartials ? 'onclick="togglePosition(\'' + t.id + '\')"' : '';
     const dirTag       = t.direction === 'Long' ? 'tag-long' : 'tag-short';
@@ -3674,6 +3677,8 @@ function renderDashboard() {
   const grossWins   = wins.reduce((s,t) => s + (t.gross||0), 0);
   const grossLosses = Math.abs(losses.reduce((s,t) => s + (t.gross||0), 0));
   const pf = grossLosses > 0 ? (grossWins / grossLosses) : null;
+  const avgWin  = wins.length  > 0 ? wins.reduce((s,t)   => s + (t.net||0), 0) / wins.length  : null;
+  const avgLoss = losses.length > 0 ? losses.reduce((s,t) => s + (t.net||0), 0) / losses.length : null;
 
   // Stat cards
   const pnlEl = document.getElementById('dstat-pnl');
@@ -3684,7 +3689,11 @@ function renderDashboard() {
   document.getElementById('dstat-wr').textContent = wr != null ? wr.toFixed(1) + '%' : '—';
   document.getElementById('dstat-wr-sub').textContent = wins.length + 'W / ' + losses.length + 'L';
   document.getElementById('dstat-pf').textContent = pf != null ? pf.toFixed(2) : '—';
-  document.getElementById('dstat-r').textContent  = avgR != null ? (avgR >= 0 ? '+' : '') + avgR.toFixed(2) + 'R' : '—';
+  const avgWinStr  = avgWin  != null ? '+$' + avgWin.toFixed(2)  : '—';
+  const avgLossStr = avgLoss != null ? '-$' + Math.abs(avgLoss).toFixed(2) : '—';
+  document.getElementById('dstat-r').textContent = avgWinStr;
+  const dRSub = document.getElementById('dstat-r-sub');
+  if (dRSub) dRSub.textContent = avgLossStr + ' avg loss';
   document.getElementById('chart-pnl-total').textContent = (totalNet >= 0 ? '+' : '') + '$' + totalNet.toFixed(2);
 
   renderPnLChart(trades);
@@ -4346,6 +4355,8 @@ function updateFuturesSummary() {
   const wr     = trades.length > 0 ? (wins.length / trades.length * 100) : null;
   const rs     = trades.filter(t => t.r != null);
   const avgR   = rs.length > 0 ? rs.reduce((s,t) => s + t.r, 0) / rs.length : null;
+  const avgWinF  = wins.length  > 0 ? wins.reduce((s,t)   => s + (t.net||0), 0) / wins.length  : null;
+  const avgLossF = losses.length > 0 ? losses.reduce((s,t) => s + (t.net||0), 0) / losses.length : null;
   const gw     = wins.reduce((s,t)   => s + (t.gross||0), 0);
   const gl     = Math.abs(losses.reduce((s,t) => s + (t.gross||0), 0));
   const pf     = gl > 0 ? gw / gl : null;
@@ -4359,7 +4370,11 @@ function updateFuturesSummary() {
   document.getElementById('fut-stat-wr').textContent = wr != null ? wr.toFixed(1) + '%' : '—';
   document.getElementById('fut-stat-wl').textContent = wins.length + 'W / ' + losses.length + 'L';
   document.getElementById('fut-stat-pf').textContent = pf != null ? pf.toFixed(2) : '—';
-  document.getElementById('fut-stat-r').textContent  = avgR != null ? (avgR >= 0 ? '+' : '') + avgR.toFixed(2) + 'R' : '—';
+  const futWinStr  = avgWinF  != null ? '+$' + avgWinF.toFixed(2)  : '—';
+  const futLossStr = avgLossF != null ? '-$' + Math.abs(avgLossF).toFixed(2) : '—';
+  document.getElementById('fut-stat-r').textContent = futWinStr;
+  const futRSub = document.getElementById('fut-stat-r-sub');
+  if (futRSub) futRSub.textContent = futLossStr + ' avg loss';
 }
 
 
