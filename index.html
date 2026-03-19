@@ -3607,8 +3607,8 @@ function getFilteredTrades() {
   const start = new Date();
   if (dashRange === 'week') {
     const day = now.getDay();
-    start.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-    start.setHours(0,0,0,0);
+    start.setDate(now.getDate() - day); // back to Sunday
+    start.setHours(12,0,0,0); // noon Sunday
   } else if (dashRange === 'month') {
     start.setDate(1); start.setHours(0,0,0,0);
   }
