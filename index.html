@@ -2157,7 +2157,9 @@ const state = {
   trades: [],
   gsUrl: '',
   maxLoss: 1000,
-  commission: 0.78, // per contract round trip
+  commission: 1.00,
+  microComm: parseFloat(localStorage.getItem('chartd_microComm')) || 1.00,
+  miniComm:  parseFloat(localStorage.getItem('chartd_miniComm'))  || 2.00,
   pointValues: { MNQ: 2, MES: 5, MCL: 100, MGC: 10, NQ: 20, ES: 50, CL: 1000, GC: 100, RTY: 50, YM: 5, SI: 5000, NG: 10000 },
   instrumentMap: {
     'MNQM5': 'MNQ', 'MESM5': 'MES', 'MCLM5': 'MCL', 'MGCM5': 'MGC',
@@ -2206,11 +2208,18 @@ function tradeKey(inst, direction, entry, exit_, time, acct) {
   return (acct || 'default') + '|' + inst + '|' + direction + '|' + (entry||0).toFixed(2) + '|' + (exit_||0).toFixed(2) + '|' + t;
 }
 
+
+function getCommission(inst) {
+  const micros = ['MES','MNQ','MCL','MGC','MBT','M2K','MHG'];
+  const isMicro = micros.some(function(m) { return (inst || '').toUpperCase().startsWith(m); });
+  return isMicro ? (state.microComm || 1.00) : (state.miniComm || 2.00);
+}
+
 function addTrade(t) {
   const pv = state.pointValues[t.inst] || 1;
   const dir = t.direction === 'Long' ? 1 : -1;
   const gross = (t.exit - t.entry) * dir * pv * t.contracts;
-  const comm  = t.contracts * state.commission;
+  const comm  = t.contracts * getCommission(t.inst);
   const net   = gross - comm;
   const stopDist = (t.stop != null && t.stop !== 0) ? Math.abs(t.entry - t.stop) : 0;
   const rVal  = stopDist > 0 ? net / (stopDist * pv * t.contracts) : null;
@@ -2241,15 +2250,15 @@ function addPosition(p) {
   // Calculate each partial
   const partials = p.partials.map((part, i) => {
     const gross = (part.exitPrice - part.entryPrice) * dir * pv * part.contracts;
-    const comm  = part.contracts * state.commission;
+    const comm  = part.contracts * getCommission(p.inst);
     const net   = gross - comm;
     return { ...part, gross, comm, net, r: null, id: p.id + '-partial-' + i };
   });
 
-  // Position totals
-  const totalGross = partials.reduce((s, x) => s + x.gross, 0);
-  const totalComm  = partials.reduce((s, x) => s + x.comm,  0);
-  const totalNet   = partials.reduce((s, x) => s + x.net,   0);
+  // Position totals — use CSV P&L if available, otherwise calculate
+  const totalGross = p.csvPnl != null ? p.csvPnl : partials.reduce((s, x) => s + x.gross, 0);
+  const totalComm  = p.csvPnl != null ? 0 : partials.reduce((s, x) => s + x.comm,  0);
+  const totalNet   = p.csvPnl != null ? p.csvPnl : partials.reduce((s, x) => s + x.net,   0);
   const stopDist   = (p.stop != null && p.stop !== 0) ? Math.abs(p.avgEntry - p.stop) : 0;
   const rVal       = stopDist > 0 ? totalNet / (stopDist * pv * p.totalContracts) : null;
 
@@ -2904,6 +2913,14 @@ function parseTradePnLFormat(lines, headers, filename) {
     const buyPrice  = iBuyPrice >= 0  ? parseFloat(cols[iBuyPrice])  || 0        : 0;
     const sellPrice = iSellPrice >= 0 ? parseFloat(cols[iSellPrice]) || 0        : 0;
     const acct      = iAcct >= 0      ? cols[iAcct].replace(/"/g,'').trim()      : fileAcct;
+    // Read P&L directly from CSV — strip $, handle ($xx.xx) negative format
+    let csvPnl = null;
+    if (iPnl >= 0 && cols[iPnl]) {
+      const raw = cols[iPnl].replace(/"/g,'').trim();
+      const isNeg = raw.includes('(') || raw.startsWith('-');
+      const num = parseFloat(raw.replace(/[$(),]/g,''));
+      if (!isNaN(num)) csvPnl = isNeg ? -Math.abs(num) : num;
+    }
 
     // Parse timestamps
     const buyTimeRaw  = iBuyTime >= 0  ? cols[iBuyTime].replace(/"/g,'').trim()  : '';
@@ -2947,6 +2964,7 @@ function parseTradePnLFormat(lines, headers, filename) {
       avgExit:        exit_,
       entryTime:      entryTime,
       exitTime:       exitTime,
+      csvPnl:         csvPnl,
       partials:       [{ entryPrice: entry, exitPrice: exit_, contracts: qty, entryTime: entryTime, exitTime: exitTime, acct: acct }],
       stop:           0,
       source:         'csv'
@@ -3392,18 +3410,44 @@ async function signOut() {
 }
 
 function showSettings() {
-  const choice = confirm('CHARTD JOURNAL SETTINGS\n\nGoogle Sheet URL: ' + (state.gsUrl || 'not connected') + '\n\nOK = Update Google Sheet URL\nCancel = Sign Out');
-  if (choice) {
-    const newUrl = prompt('Paste your Apps Script URL (leave blank to remove):', state.gsUrl || '');
-    if (newUrl !== null) {
-      state.gsUrl = newUrl.trim();
-      localStorage.setItem('chartd_gsUrl', state.gsUrl);
-      if (state.gsUrl) { setStatus('gs', 'connected', 'Sheet: On'); toast('Google Sheet connected', 'success'); }
-      else { setStatus('gs', 'error', 'Sheet: Off'); toast('Google Sheet removed', 'info'); }
-    }
-  } else {
-    if (confirm('Sign out of Chartd Journal?')) signOut();
-  }
+  document.getElementById('settings-modal').style.display = 'block';
+  document.getElementById('settings-overlay').style.display = 'block';
+  // Pre-fill values
+  document.getElementById('set-micro-comm').value = state.microComm || 1.00;
+  document.getElementById('set-mini-comm').value  = state.miniComm  || 2.00;
+  document.getElementById('set-gs-url').value     = state.gsUrl || '';
+  document.getElementById('set-max-loss').value   = state.maxLoss || 1000;
+}
+
+function closeSettings() {
+  document.getElementById('settings-modal').style.display = 'none';
+  document.getElementById('settings-overlay').style.display = 'none';
+}
+
+function saveSettings() {
+  const microComm = parseFloat(document.getElementById('set-micro-comm').value) || 1.00;
+  const miniComm  = parseFloat(document.getElementById('set-mini-comm').value)  || 2.00;
+  const gsUrl     = document.getElementById('set-gs-url').value.trim();
+  const maxLoss   = parseFloat(document.getElementById('set-max-loss').value)   || 1000;
+
+  state.microComm = microComm;
+  state.miniComm  = miniComm;
+  state.gsUrl     = gsUrl;
+  state.maxLoss   = maxLoss;
+
+  localStorage.setItem('chartd_microComm', microComm);
+  localStorage.setItem('chartd_miniComm',  miniComm);
+  localStorage.setItem('chartd_gsUrl',     gsUrl);
+  localStorage.setItem('chartd_maxLoss',   maxLoss);
+
+  if (gsUrl) setStatus('gs', 'connected', 'Sheet: On');
+  else       setStatus('gs', 'error', 'Sheet: Off');
+
+  const mlInline = document.getElementById('max-loss-inline');
+  if (mlInline) mlInline.value = maxLoss;
+
+  closeSettings();
+  toast('Settings saved', 'success');
 }
 
 // ── SUPABASE TRADE STORAGE ─────────────────────────────────────────
@@ -4193,7 +4237,7 @@ function updateFuturesPnL() {
   const dir   = document.getElementById('fm-dir').value;
   if (!entry || !exit_) { document.getElementById('fm-pnl-preview').textContent = '—'; return; }
   const pv  = state.pointValues[inst] || 1;
-  const pnl = (exit_ - entry) * (dir === 'Long' ? 1 : -1) * pv * contr - (contr * 0.78);
+  const pnl = (exit_ - entry) * (dir === 'Long' ? 1 : -1) * pv * contr - (contr * getCommission(inst));
   const el  = document.getElementById('fm-pnl-preview');
   el.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
   el.style.color = pnl > 0 ? 'var(--green)' : pnl < 0 ? 'var(--red)' : 'var(--text)';
@@ -4573,6 +4617,60 @@ function getFilteredFutures() {
   #futures-modal { top:auto; bottom:0; left:0; right:0; transform:none; width:100%; max-width:100%; border-radius:16px 16px 0 0; }
 }
 </style>
+
+
+<!-- Settings Modal -->
+<div id="settings-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:450;" onclick="closeSettings()"></div>
+<div id="settings-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:440px;max-width:95vw;max-height:90vh;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;z-index:460;">
+  <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--blue));border-radius:16px 16px 0 0;"></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;">SETTINGS</div>
+    <div onclick="closeSettings()" style="cursor:pointer;color:var(--muted);font-size:20px;padding:4px 8px;">✕</div>
+  </div>
+
+  <!-- Commission -->
+  <div style="margin-bottom:20px;">
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:4px;">COMMISSION (MANUAL TRADES ONLY)</div>
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:12px;">CSV imports use the P&L from your Tradovate export directly.</div>
+    <div class="input-row">
+      <div>
+        <label>Micros (MES, MNQ, MCL...)</label>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);">$</span>
+          <input type="number" id="set-micro-comm" value="1.00" min="0" step="0.01" style="flex:1;"/>
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:4px;">per contract round trip</div>
+      </div>
+      <div>
+        <label>Minis (ES, NQ, CL...)</label>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);">$</span>
+          <input type="number" id="set-mini-comm" value="2.00" min="0" step="0.01" style="flex:1;"/>
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:4px;">per contract round trip</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daily max loss -->
+  <div style="margin-bottom:20px;">
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:12px;">DAILY MAX LOSS</div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);">$</span>
+      <input type="number" id="set-max-loss" value="1000" min="0" step="50"/>
+    </div>
+  </div>
+
+  <!-- Google Sheet -->
+  <div style="margin-bottom:24px;">
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:12px;">GOOGLE SHEET BACKUP (OPTIONAL)</div>
+    <label>Apps Script URL</label>
+    <input type="text" id="set-gs-url" placeholder="https://script.google.com/macros/s/..."/>
+  </div>
+
+  <button class="btn btn-primary" onclick="saveSettings()" style="width:100%;margin-bottom:10px;">SAVE SETTINGS</button>
+  <button onclick="if(confirm('Sign out?'))signOut()" style="width:100%;background:transparent;border:1px solid rgba(255,69,96,0.3);color:var(--red);font-family:'DM Mono',monospace;font-size:12px;padding:10px;border-radius:8px;cursor:pointer;letter-spacing:1px;">SIGN OUT</button>
+</div>
 
 </body>
 </html>
