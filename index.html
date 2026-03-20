@@ -7,6 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
   :root {
@@ -1618,6 +1619,90 @@
     .dash-filter-group { min-width: 100%; }
     .breakdown-grid { grid-template-columns: 1fr; }
   }
+
+  /* Goals */
+  .goal-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin-bottom: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+  .goal-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+  }
+  .goal-card.on-track::before  { background: var(--green); }
+  .goal-card.at-risk::before   { background: var(--yellow, #f59e0b); }
+  .goal-card.missed::before    { background: var(--red); }
+  .goal-card.completed::before { background: var(--accent); }
+
+  .goal-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:10px; }
+  .goal-title { font-size:16px;font-weight:700;color:var(--text); }
+  .goal-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 100px;
+    letter-spacing: 1px;
+  }
+  .goal-badge.on-track  { background:rgba(0,229,160,0.1);color:var(--accent);border:1px solid rgba(0,229,160,0.3); }
+  .goal-badge.at-risk   { background:rgba(245,158,11,0.1);color:#f59e0b;border:1px solid rgba(245,158,11,0.3); }
+  .goal-badge.missed    { background:rgba(255,69,96,0.1);color:var(--red);border:1px solid rgba(255,69,96,0.3); }
+  .goal-badge.completed { background:rgba(0,229,160,0.15);color:var(--accent);border:1px solid var(--accent); }
+
+  .goal-progress-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 10px 0 8px;
+  }
+  .goal-progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+  }
+  .goal-numbers { display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--muted); }
+  .goal-delete {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color 0.15s;
+  }
+  .goal-delete:hover { color: var(--red); }
+
+  /* Light mode */
+  body.light-mode {
+    --bg:      #f0f4f8;
+    --surface: #ffffff;
+    --surface2:#f8fafc;
+    --border:  #e2e8f0;
+    --text:    #1a202c;
+    --muted:   #64748b;
+    --mono:    'DM Mono', monospace;
+  }
+  body.light-mode header { background: rgba(240,244,248,0.95); }
+  body.light-mode .sidebar { background: #ffffff; }
+  body.light-mode .sync-log { background: #f8fafc; }
+  body.light-mode .log-entry { border-color: #e2e8f0; }
+  body.light-mode input, body.light-mode select, body.light-mode textarea {
+    background: #f8fafc;
+    color: #1a202c;
+    border-color: #e2e8f0;
+  }
+
+  @media (max-width: 768px) {
+    #stock-modal { top:auto; bottom:0; left:0; right:0; transform:none; width:100%; border-radius:16px 16px 0 0; max-height:85vh; }
+  }
 </style>
 </head>
 <body>
@@ -1809,6 +1894,8 @@ function doGet(e) {<br/>
       <div class="user-dot"></div>
       <span id="user-email-display">...</span>
     </div>
+    <button onclick="toggleTheme()" id="theme-btn" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 10px;border-radius:7px;cursor:pointer;font-size:16px;line-height:1;transition:all 0.15s;" title="Toggle light/dark mode">🌙</button>
+    <button onclick="openShareModal()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;padding:7px 12px;border-radius:7px;cursor:pointer;letter-spacing:1px;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">↗ Share</button>
     <button class="btn btn-secondary" style="width:auto;padding:7px 14px;" onclick="showSettings()">⚙ Settings</button>
   </div>
 </header>
@@ -1884,6 +1971,27 @@ function doGet(e) {<br/>
       <button id="m-type-options"></button>
     </div>
 
+    <!-- Sidebar Goals -->
+    <div class="sidebar-section" id="sidebar-goals-section">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div class="sidebar-label" style="margin-bottom:0;">GOALS</div>
+        <button onclick="switchView('goals')" style="background:transparent;border:none;color:var(--accent);font-family:var(--mono);font-size:9px;letter-spacing:1px;cursor:pointer;padding:0;">VIEW ALL →</button>
+      </div>
+      <div id="sidebar-goals-list">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;padding:8px 0;">No goals set — <a href="#" onclick="switchView('goals');return false;" style="color:var(--accent);">add one</a></div>
+      </div>
+    </div>
+
+
+    <!-- Sidebar Goals Widget -->
+    <div class="sidebar-section" id="sidebar-goals-section" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div class="sidebar-label" style="margin-bottom:0;">ACTIVE GOALS</div>
+        <a onclick="switchView('goals')" style="font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:1px;cursor:pointer;text-decoration:none;">VIEW ALL →</a>
+      </div>
+      <div id="sidebar-goals-list"></div>
+    </div>
+
     <!-- Economic Calendar -->
     <div class="sidebar-section">
       <div class="sidebar-label">Economic Calendar</div>
@@ -1935,6 +2043,7 @@ function doGet(e) {<br/>
       <button class="view-tab active" id="tab-dashboard" onclick="switchView('dashboard')">Dashboard</button>
       <button class="view-tab" id="tab-futures" onclick="switchView('futures')">Futures</button>
       <button class="view-tab" id="tab-options" onclick="switchView('options')">Options</button>
+      <button class="view-tab" id="tab-goals" onclick="switchView('goals')">Goals</button>
       <div style="flex:1;"></div>
       <div style="display:flex;align-items:center;gap:6px;padding:8px 0;">
         <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">LIMIT $</span>
@@ -2122,33 +2231,36 @@ function doGet(e) {<br/>
         <div class="drop-icon">📂</div>
         <div class="drop-text"><b>Drop Tradovate CSV here</b><br/>or use the Import CSV button above<br/><br/>To export: Log into Tradovate<br/>→ <b>Reports</b> → <b>Fills</b> → select date range → <b>Export</b></div>
       </div>
-      <!-- Account tabs -->
+      <!-- Account tabs — auto-generated from imported CSVs -->
       <div class="acct-tabs" id="acct-tabs" style="display:none;"></div>
 
-      <div class="acct-tabs" id="acct-tabs" style="display:none;"></div>
-
-      <!-- Futures summary strip -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;" id="futures-summary">
-        <div class="dash-stat" id="fut-card-pnl">
-          <div class="dash-stat-label">Net P&L</div>
-          <div class="dash-stat-value" id="fut-stat-pnl">$0.00</div>
-          <div class="dash-stat-sub" id="fut-stat-trades">0 trades</div>
+      <!-- Futures summary — combined + per account -->
+      <div id="futures-summary" style="margin-bottom:16px;">
+        <!-- Overall stats row -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px;">
+          <div class="dash-stat" id="fut-card-pnl">
+            <div class="dash-stat-label">Net P&L</div>
+            <div class="dash-stat-value" id="fut-stat-pnl">$0.00</div>
+            <div class="dash-stat-sub" id="fut-stat-trades">0 trades</div>
+          </div>
+          <div class="dash-stat">
+            <div class="dash-stat-label">Win Rate</div>
+            <div class="dash-stat-value" id="fut-stat-wr">—</div>
+            <div class="dash-stat-sub" id="fut-stat-wl">W / L</div>
+          </div>
+          <div class="dash-stat">
+            <div class="dash-stat-label">Profit Factor</div>
+            <div class="dash-stat-value" id="fut-stat-pf">—</div>
+            <div class="dash-stat-sub">gross wins / losses</div>
+          </div>
+          <div class="dash-stat acc">
+            <div class="dash-stat-label">Largest Trade</div>
+            <div class="dash-stat-value acc" id="fut-stat-r">—</div>
+            <div class="dash-stat-sub" id="fut-stat-r-sub">largest loss</div>
+          </div>
         </div>
-        <div class="dash-stat">
-          <div class="dash-stat-label">Win Rate</div>
-          <div class="dash-stat-value" id="fut-stat-wr">—</div>
-          <div class="dash-stat-sub" id="fut-stat-wl">W / L</div>
-        </div>
-        <div class="dash-stat">
-          <div class="dash-stat-label">Profit Factor</div>
-          <div class="dash-stat-value" id="fut-stat-pf">—</div>
-          <div class="dash-stat-sub">gross wins / losses</div>
-        </div>
-        <div class="dash-stat acc">
-          <div class="dash-stat-label">Largest Trade</div>
-          <div class="dash-stat-value acc" id="fut-stat-r">—</div>
-          <div class="dash-stat-sub" id="fut-stat-r-sub">largest loss</div>
-        </div>
+        <!-- Per-account cards — shown when multiple accounts -->
+        <div id="acct-summary-cards" style="display:none;"></div>
       </div>
 
       <div class="table-wrap">
@@ -2247,7 +2359,24 @@ function doGet(e) {<br/>
           </tbody>
         </table>
       </div>
+
     </div>
+
+    <!-- ── GOALS VIEW ────────────────────────────────────────── -->
+    <div class="main" id="view-goals" style="display:none;">
+      <div class="section-header">
+        <div class="section-title">Goals</div>
+        <button class="btn btn-primary" style="width:auto;padding:10px 20px;font-size:13px;font-weight:700;background:var(--accent);color:#080c12;" onclick="openGoalModal()">+ Add Goal</button>
+      </div>
+
+      <div id="goals-container">
+        <div class="empty-state">
+          <div class="empty-icon">🎯</div>
+          <div class="empty-text">No goals set yet.<br/>Click <b style="color:var(--accent)">+ Add Goal</b> to set your first target.</div>
+        </div>
+      </div>
+    </div>
+
 
   </div>
 </div>
@@ -2405,6 +2534,7 @@ function addTrade(t) {
 
   if (state.gsUrl) pushToSheet(trade);
   saveTradeToSupabase(trade);
+  updateSidebarGoals();
   if (currentView === 'dashboard') renderDashboard();
   addLog(`Trade logged: ${t.inst} ${t.direction} → Net $${net.toFixed(2)}`, 'ok');
   toast(`${t.inst} ${t.direction} — Net ${net >= 0 ? '+' : ''}$${net.toFixed(2)}`, net >= 0 ? 'success' : 'error');
@@ -2630,6 +2760,8 @@ async function clearTrades() {
   updateTradeSelect();
   updateSidebarStats();
   updateFuturesSummary();
+  updateSidebarGoals();
+  renderSidebarGoals();
   if (currentView === 'dashboard') renderDashboard();
   toast('Futures trades permanently deleted', 'info');
 }
@@ -2779,6 +2911,8 @@ function updateStats() {
 
   updateSidebarStats();
   updateFuturesSummary();
+  updateSidebarGoals();
+  renderSidebarGoals();
   // Daily limit (still exists in dashboard)
   const lossToday = Math.abs(Math.min(0, totalNet));
   const pct = Math.min(100, (lossToday / state.maxLoss) * 100);
@@ -3153,13 +3287,17 @@ function parseTradovateCSV(text, filename) {
   const headers = splitCSVLine(lines[0]).map(h => h.replace(/"/g,'').trim().toLowerCase());
   const ci = (exact) => { const i = headers.indexOf(exact.toLowerCase()); return i; };
 
-  const iTime  = ci('timestamp');
-  const iBS    = ci('b/s');
-  const iQty   = ci('quantity');
-  const iPrice = ci('price');
-  const iSym   = ci('product');
+  // Support both column naming conventions
+  const iTime  = ci('timestamp')  >= 0 ? ci('timestamp')  : ci('_timestamp');
+  const iBS    = ci('b/s')        >= 0 ? ci('b/s')        : ci('_action');
+  const iQty   = ci('quantity')   >= 0 ? ci('quantity')   : ci('_qty');
+  const iPrice = ci('price')      >= 0 ? ci('price')      : ci('_price');
+  const iSym   = ci('product')    >= 0 ? ci('product')    : ci('contract');
+  const iAcct  = ci('account')    >= 0 ? ci('account')    : (ci('_accountid') >= 0 ? ci('_accountid') : -1);
+  const iComm  = ci('commission') >= 0 ? ci('commission') : -1;
+  const fileAcctFills = filename ? filename.replace(/\.csv$/i,'').trim() : 'default';
 
-  addLog(`Cols → time:${iTime} b/s:${iBS} qty:${iQty} price:${iPrice} sym:${iSym}`, 'info');
+  addLog('Cols → time:' + iTime + ' b/s:' + iBS + ' qty:' + iQty + ' price:' + iPrice + ' sym:' + iSym + ' acct:' + iAcct, 'info');
 
   if ([iBS, iQty, iPrice, iSym].some(i => i < 0)) {
     addLog('Column mapping failed — check CSV is a Tradovate Fills export', 'err');
@@ -3192,8 +3330,14 @@ function parseTradovateCSV(text, filename) {
         time = isNaN(d) ? new Date() : d;
       }
     }
-    if (!sym || !bs || !qty || !price) { skipped++; return; }
-    fills.push({ sym, bs, qty, price, time });
+    // Normalize B/S — handle ' Sell'/' Buy' (space prefix) and _action (0=buy,1=sell)
+    let bsNorm = bs.trim();
+    if (bsNorm === '1' || bsNorm === 'sell') bsNorm = 'sell';
+    else if (bsNorm === '0' || bsNorm === 'buy') bsNorm = 'buy';
+    const acctVal = iAcct >= 0 && cols[iAcct] ? cols[iAcct].replace(/"/g,'').trim() : fileAcctFills;
+    const commVal = iComm >= 0 && cols[iComm] ? parseFloat(cols[iComm]) || 0 : 0;
+    if (!sym || !bsNorm || !qty || !price) { skipped++; return; }
+    fills.push({ sym, bs: bsNorm, qty, price, time, acct: acctVal, comm: commVal });
   });
 
   addLog(`${fills.length} fills parsed, ${skipped} rows skipped`, 'info');
@@ -3209,10 +3353,10 @@ function parseTradovateCSV(text, filename) {
 
     symFills.forEach(fill => {
       if (openFills.length === 0) {
-        openFills.push({ ...fill, remaining: fill.qty });
+        openFills.push({ ...fill, remaining: fill.qty, acct: fill.acct || fileAcctFills });
       } else if (openFills[0].bs === fill.bs) {
         // Scale IN — same direction, add to position
-        openFills.push({ ...fill, remaining: fill.qty });
+        openFills.push({ ...fill, remaining: fill.qty, acct: fill.acct || fileAcctFills });
       } else {
         // Closing fill — match against open fills and build partials
         let closeRem = fill.qty;
@@ -3243,6 +3387,7 @@ function parseTradovateCSV(text, filename) {
 
           const posId = `pos-${sym}-${positionCount}-${fill.time.getTime()}`;
           addPosition({
+            acct: fill.acct || fileAcctFills,
             id: posId,
             inst: sym,
             direction,
@@ -3563,6 +3708,7 @@ async function onSignedIn(user) {
   await loadTradesFromSupabase();
   await loadOptionsFromSupabase();
 
+  initTheme();
   addLog(`Signed in as ${user.email}`, 'ok');
   toast(`Welcome back!`, 'success');
 }
@@ -3652,7 +3798,8 @@ async function saveTradeToSupabase(trade) {
     went_wrong:     trade.wrong  || null,
     lesson:         trade.lesson || null,
     source:         trade.source || 'manual',
-    trade_time:     tradeTime.toISOString()
+    trade_time:     tradeTime.toISOString(),
+    account_id:     trade.acct || null
   };
 
   // Only include id if it's a real Supabase UUID (not our local CSV id)
@@ -3716,6 +3863,7 @@ async function loadTradesFromSupabase() {
         wrong:      row.went_wrong || '',
         lesson:     row.lesson || '',
         source:     row.source || '',
+        acct:       row.account_id || 'default',
         partials:   [],
         isPosition: false,
         expanded:   false
@@ -3725,6 +3873,7 @@ async function loadTradesFromSupabase() {
       updateTradeSelect();
       buildAcctTabs();
       buildAcctTabs();
+      renderSidebarGoals();
       addLog(`Loaded ${data.length} trades from cloud`, 'ok');
       if (currentView === 'dashboard') renderDashboard();
     } else {
@@ -3762,7 +3911,7 @@ let wlChart     = null;
 
 function switchView(view) {
   currentView = view;
-  ['dashboard','futures','options'].forEach(v => {
+  ['dashboard','futures','options','goals'].forEach(v => {
     const el = document.getElementById('view-' + v);
     if (el) el.style.display = v === view ? 'block' : 'none';
     const tab = document.getElementById('tab-' + v);
@@ -3770,6 +3919,7 @@ function switchView(view) {
   });
   if (view === 'dashboard') renderDashboard();
   if (view === 'options')   renderOptionsTable();
+  if (view === 'goals')     renderGoals();
 }
 
 function setDashRange(range, btn) {
@@ -4762,6 +4912,711 @@ function renderBreakdowns(trades) {
   }
 }
 
+
+// == LIGHT / DARK MODE ==
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light-mode');
+  localStorage.setItem('chartd_theme', isLight ? 'light' : 'dark');
+  document.getElementById('theme-btn').textContent = isLight ? '☀️' : '🌙';
+}
+
+function initTheme() {
+  const saved = localStorage.getItem('chartd_theme');
+  if (saved === 'light') {
+    document.body.classList.add('light-mode');
+    const btn = document.getElementById('theme-btn');
+    if (btn) btn.textContent = '☀️';
+  }
+}
+
+// == GOALS ==
+function loadGoals() {
+  const saved = localStorage.getItem('chartd_goals');
+  return saved ? JSON.parse(saved) : [];
+}
+
+function saveGoals(goals) {
+  localStorage.setItem('chartd_goals', JSON.stringify(goals));
+}
+
+function openGoalModal() {
+  document.getElementById('goal-modal').style.display = 'block';
+  document.getElementById('goal-modal-overlay').style.display = 'block';
+}
+
+function closeGoalModal() {
+  document.getElementById('goal-modal').style.display = 'none';
+  document.getElementById('goal-modal-overlay').style.display = 'none';
+}
+
+function updateGoalLabel() {
+  const type = document.getElementById('goal-type').value;
+  const labels = {
+    daily_pnl:          'Daily P&L Target ($)',
+    weekly_pnl:         'Weekly P&L Target ($)',
+    monthly_pnl:        'Monthly P&L Target ($)',
+    prop_target:        'Prop Firm Profit Target ($)',
+    max_loss:           'Max Daily Loss ($)',
+    max_loss_per_trade: 'Max Loss Per Trade ($)',
+    max_consec_losses:  'Max Consecutive Losses Before Stopping',
+    win_rate:           'Target Win Rate (%)',
+    profit_factor:      'Target Profit Factor (e.g. 1.5)',
+    avg_r:              'Target Avg R (e.g. 1.5)',
+    compliance:         'Target Compliance Rate (%)',
+    consec_green:       'Target Consecutive Green Days',
+    max_trades_day:     'Max Trades Per Day',
+    trades:             'Target Trades Per Week'
+  };
+  document.getElementById('goal-target-label').textContent = labels[type] || 'Target';
+}
+
+function saveGoal() {
+  const type   = document.getElementById('goal-type').value;
+  const target = parseFloat(document.getElementById('goal-target').value);
+  const notes  = document.getElementById('goal-notes').value;
+
+  if (!target) { toast('Enter a target value', 'error'); return; }
+
+  const goals = loadGoals();
+  goals.push({ id: Date.now(), type, target, notes, created: new Date().toISOString() });
+  saveGoals(goals);
+  closeGoalModal();
+  renderGoals();
+  updateSidebarGoals();
+  renderSidebarGoals();
+  toast('Goal saved!', 'success');
+
+  document.getElementById('goal-target').value = '';
+  document.getElementById('goal-notes').value  = '';
+}
+
+function deleteGoal(id) {
+  if (!confirm('Delete this goal?')) return;
+  const goals = loadGoals().filter(function(g) { return g.id !== id; });
+  saveGoals(goals);
+  renderGoals();
+}
+
+function getGoalProgress(goal) {
+  const trades   = state.trades;
+  const now      = new Date();
+  const todayStr = now.toDateString();
+
+  // Helper: get trades for a period
+  function periodTrades(period) {
+    const start = new Date();
+    if (period === 'today') { start.setHours(0,0,0,0); }
+    else if (period === 'week') { start.setDate(now.getDate() - now.getDay()); start.setHours(12,0,0,0); }
+    else if (period === 'month') { start.setDate(1); start.setHours(0,0,0,0); }
+    else return trades;
+    return trades.filter(function(t) {
+      const d = t.time instanceof Date ? t.time : new Date(t.time);
+      return d >= start;
+    });
+  }
+
+  var current, pct, extra = {};
+
+  switch(goal.type) {
+    case 'daily_pnl':
+      current = periodTrades('today').reduce(function(s,t) { return s+(t.net||0); }, 0);
+      pct = Math.min(100, Math.max(0, current / goal.target * 100));
+      break;
+    case 'weekly_pnl':
+      current = periodTrades('week').reduce(function(s,t) { return s+(t.net||0); }, 0);
+      pct = Math.min(100, Math.max(0, current / goal.target * 100));
+      break;
+    case 'monthly_pnl':
+      current = periodTrades('month').reduce(function(s,t) { return s+(t.net||0); }, 0);
+      pct = Math.min(100, Math.max(0, current / goal.target * 100));
+      break;
+    case 'prop_target':
+      current = trades.reduce(function(s,t) { return s+(t.net||0); }, 0);
+      pct = Math.min(100, Math.max(0, current / goal.target * 100));
+      break;
+    case 'max_loss': {
+      var loss = Math.abs(Math.min(0, periodTrades('today').reduce(function(s,t) { return s+(t.net||0); }, 0)));
+      current = loss; pct = Math.min(100, loss / goal.target * 100); extra.isLoss = true; break;
+    }
+    case 'max_loss_per_trade': {
+      var worst = trades.length > 0 ? Math.min(...trades.map(function(t) { return t.net||0; })) : 0;
+      var worstAbs = Math.abs(Math.min(0, worst));
+      current = worstAbs; pct = Math.min(100, worstAbs / goal.target * 100); extra.isLoss = true; break;
+    }
+    case 'max_consec_losses': {
+      var maxL = 0, curL = 0;
+      trades.slice().reverse().forEach(function(t) { if(t.net<0){curL++;maxL=Math.max(maxL,curL);}else{curL=0;} });
+      current = maxL; pct = Math.min(100, maxL / goal.target * 100); extra.isLoss = true; break;
+    }
+    case 'win_rate': {
+      var wins = trades.filter(function(t){return t.net>0;}).length;
+      current = trades.length > 0 ? wins/trades.length*100 : 0;
+      pct = Math.min(100, current/goal.target*100); extra.isRate = true; extra.unit = '%'; break;
+    }
+    case 'profit_factor': {
+      var gw = trades.filter(function(t){return t.net>0;}).reduce(function(s,t){return s+(t.gross||0);},0);
+      var gl = Math.abs(trades.filter(function(t){return t.net<0;}).reduce(function(s,t){return s+(t.gross||0);},0));
+      current = gl > 0 ? gw/gl : 0;
+      pct = Math.min(100, current/goal.target*100); extra.isRate = true; extra.unit = 'x'; break;
+    }
+    case 'avg_r': {
+      var rs = trades.filter(function(t){return t.r!=null;});
+      current = rs.length > 0 ? rs.reduce(function(s,t){return s+(t.r||0);},0)/rs.length : 0;
+      pct = Math.min(100, current/goal.target*100); extra.isRate = true; extra.unit = 'R'; break;
+    }
+    case 'compliance': {
+      var tagged = trades.filter(function(t){return t.rules;});
+      current = tagged.length > 0 ? tagged.filter(function(t){return t.rules==='Yes';}).length/tagged.length*100 : 0;
+      pct = Math.min(100, current/goal.target*100); extra.isRate = true; extra.unit = '%'; break;
+    }
+    case 'consec_green': {
+      var streak = 0;
+      // Group by day and count streak
+      var dayPnL = {};
+      trades.forEach(function(t) {
+        var d = (t.time instanceof Date ? t.time : new Date(t.time)).toDateString();
+        dayPnL[d] = (dayPnL[d]||0) + (t.net||0);
+      });
+      var days = Object.keys(dayPnL).sort(function(a,b){return new Date(a)-new Date(b);});
+      for(var i=days.length-1;i>=0;i--) { if(dayPnL[days[i]]>0)streak++; else break; }
+      current = streak; pct = Math.min(100, streak/goal.target*100); extra.unit = 'days'; break;
+    }
+    case 'max_trades_day': {
+      var todayCount = periodTrades('today').length;
+      current = todayCount; pct = Math.min(100, todayCount/goal.target*100); extra.isLoss = true; break;
+    }
+    case 'trades': {
+      current = periodTrades('week').length;
+      pct = Math.min(100, current/goal.target*100); break;
+    }
+    default:
+      current = 0; pct = 0;
+  }
+
+  return Object.assign({ current: current, target: goal.target, pct: pct }, extra);
+}
+
+function renderGoals() {
+  const container = document.getElementById('goals-container');
+  if (!container) return;
+  const goals = loadGoals();
+
+  if (goals.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-text">No goals set yet.<br/>Click <b style="color:var(--accent)">+ Add Goal</b> to set your first target.</div></div>';
+    return;
+  }
+
+  const typeLabels = {
+    daily_pnl:          'Daily P&L Target',
+    weekly_pnl:         'Weekly P&L Target',
+    monthly_pnl:        'Monthly P&L Target',
+    prop_target:        'Prop Firm Profit Target',
+    max_loss:           'Max Daily Loss',
+    max_loss_per_trade: 'Max Loss Per Trade',
+    max_consec_losses:  'Max Consecutive Losses',
+    win_rate:           'Win Rate Target',
+    profit_factor:      'Profit Factor Target',
+    avg_r:              'Avg R Per Trade',
+    compliance:         'Rule Compliance Rate',
+    consec_green:       'Consecutive Green Days',
+    max_trades_day:     'Max Trades Per Day',
+    trades:             'Trades Per Week'
+  };
+
+  container.innerHTML = goals.map(function(g) {
+    const prog = getGoalProgress(g);
+    const pct  = prog.pct;
+    let status = 'on-track';
+    let badge  = 'ON TRACK';
+    if (g.type === 'max_loss') {
+      status = pct >= 100 ? 'missed' : pct >= 80 ? 'at-risk' : 'on-track';
+      badge  = pct >= 100 ? 'LIMIT HIT' : pct >= 80 ? 'AT RISK' : 'SAFE';
+    } else {
+      status = pct >= 100 ? 'completed' : pct >= 70 ? 'on-track' : pct >= 40 ? 'at-risk' : 'missed';
+      badge  = pct >= 100 ? 'COMPLETED' : pct >= 70 ? 'ON TRACK' : pct >= 40 ? 'AT RISK' : 'BEHIND';
+    }
+
+    const fillColor = status === 'completed' || status === 'on-track' ? 'var(--accent)' :
+                      status === 'at-risk' ? '#f59e0b' : 'var(--red)';
+
+    const unit = prog.unit || '';
+    const isDollar = !unit && !prog.isRate;
+    const currentStr = unit ? prog.current.toFixed(unit === 'days' ? 0 : 1) + unit
+                     : isDollar ? (prog.current >= 0 ? '+' : '') + '$' + Math.abs(prog.current).toFixed(2)
+                     : prog.current.toFixed(0);
+    const targetStr  = unit ? prog.target + unit
+                     : isDollar ? '$' + parseFloat(prog.target).toFixed(2)
+                     : prog.target;
+
+    return '<div class="goal-card ' + status + '">' +
+      '<div class="goal-header">' +
+        '<div>' +
+          '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:4px;">' + typeLabels[g.type] + '</div>' +
+          '<div class="goal-title">' + targetStr + ' Target' + (g.notes ? ' — ' + g.notes : '') + '</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+          '<span class="goal-badge ' + status + '">' + badge + '</span>' +
+          '<button class="goal-delete" onclick="deleteGoal(' + g.id + ')">✕</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="goal-progress-bar"><div class="goal-progress-fill" style="width:' + pct + '%;background:' + fillColor + ';"></div></div>' +
+      '<div class="goal-numbers"><span>' + currentStr + ' current</span><span>' + pct.toFixed(0) + '%</span><span>' + targetStr + ' target</span></div>' +
+    '</div>';
+  }).join('');
+}
+
+// == SHARE CARD ==
+let shareRange = 'today';
+
+function openShareModal() {
+  document.getElementById('share-modal').style.display = 'block';
+  document.getElementById('share-modal-overlay').style.display = 'block';
+  updateShareCard('today', document.querySelector('#share-modal .dash-range-btn'));
+}
+
+function closeShareModal() {
+  document.getElementById('share-modal').style.display = 'none';
+  document.getElementById('share-modal-overlay').style.display = 'none';
+}
+
+function updateShareCard(range, btn) {
+  shareRange = range;
+  document.querySelectorAll('#share-modal .dash-range-btn').forEach(function(b) { b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+
+  const now   = new Date();
+  let trades  = state.trades;
+  let label   = '';
+
+  if (range === 'today') {
+    const todayStr = now.toDateString();
+    trades = trades.filter(function(t) {
+      return (t.time instanceof Date ? t.time : new Date(t.time)).toDateString() === todayStr;
+    });
+    label = now.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+  } else if (range === 'week') {
+    const start = new Date(); start.setDate(now.getDate() - now.getDay()); start.setHours(12,0,0,0);
+    trades = trades.filter(function(t) { return (t.time instanceof Date ? t.time : new Date(t.time)) >= start; });
+    label = 'Week of ' + start.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+  } else if (range === 'month') {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    trades = trades.filter(function(t) { return (t.time instanceof Date ? t.time : new Date(t.time)) >= start; });
+    label = now.toLocaleDateString('en-US', { month:'long', year:'numeric' });
+  } else {
+    label = 'All Time';
+  }
+
+  const wins     = trades.filter(function(t) { return t.net > 0; });
+  const losses   = trades.filter(function(t) { return t.net < 0; });
+  const totalNet = trades.reduce(function(s,t) { return s + (t.net||0); }, 0);
+  const wr       = trades.length > 0 ? (wins.length / trades.length * 100).toFixed(1) + '%' : '—';
+  const gw       = wins.reduce(function(s,t) { return s + (t.gross||0); }, 0);
+  const gl       = Math.abs(losses.reduce(function(s,t) { return s + (t.gross||0); }, 0));
+  const pf       = gl > 0 ? (gw/gl).toFixed(2) : '—';
+
+  document.getElementById('share-date').textContent  = label;
+  document.getElementById('share-pnl').textContent   = (totalNet >= 0 ? '+' : '') + '$' + Math.abs(totalNet).toFixed(2);
+  document.getElementById('share-pnl').style.color   = totalNet > 0 ? '#00e5a0' : totalNet < 0 ? '#ff4560' : '#e8edf5';
+  document.getElementById('share-wr').textContent    = wr;
+  document.getElementById('share-trades').textContent = trades.length;
+  document.getElementById('share-pf').textContent    = pf;
+}
+
+function downloadShareCard() {
+  const card = document.getElementById('share-card');
+  if (!window.html2canvas) { toast('html2canvas not loaded', 'error'); return; }
+  html2canvas(card, {
+    backgroundColor: '#080c12',
+    scale: 2,
+    useCORS: true,
+    logging: false
+  }).then(function(canvas) {
+    const link = document.createElement('a');
+    link.download = 'chartd-' + shareRange + '-' + new Date().toISOString().split('T')[0] + '.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    toast('Card saved!', 'success');
+  }).catch(function(e) {
+    toast('Export failed: ' + e.message, 'error');
+  });
+}
+
+function copyShareStats() {
+  const pnl    = document.getElementById('share-pnl').textContent;
+  const wr     = document.getElementById('share-wr').textContent;
+  const trades = document.getElementById('share-trades').textContent;
+  const pf     = document.getElementById('share-pf').textContent;
+  const date   = document.getElementById('share-date').textContent;
+  const text   = 'Chartd Journal — ' + date + '\n' +
+    'Net P&L: ' + pnl + '\n' +
+    'Win Rate: ' + wr + '\n' +
+    'Trades: ' + trades + '\n' +
+    'Profit Factor: ' + pf + '\n' +
+    'journal.getchartd.com';
+  navigator.clipboard.writeText(text).then(function() {
+    toast('Stats copied to clipboard!', 'success');
+  });
+}
+
+
+// == STOCKS / INVESTMENTS ==
+function loadStocks() {
+  const saved = localStorage.getItem('chartd_stocks');
+  return saved ? JSON.parse(saved) : [];
+}
+function saveStocksData(stocks) {
+  localStorage.setItem('chartd_stocks', JSON.stringify(stocks));
+}
+
+function openStockModal(id) {
+  const modal = document.getElementById('stock-modal');
+  document.getElementById('stock-edit-id').value = id || '';
+
+  if (id) {
+    const stock = loadStocks().find(function(s) { return s.id === id; });
+    if (!stock) return;
+    document.getElementById('stock-modal-title').textContent = 'EDIT POSITION';
+    document.getElementById('stk-ticker').value        = stock.ticker;
+    document.getElementById('stk-type').value          = stock.type;
+    document.getElementById('stk-shares').value        = stock.shares;
+    document.getElementById('stk-buy-price').value     = stock.buyPrice;
+    document.getElementById('stk-current-price').value = stock.currentPrice || '';
+    document.getElementById('stk-buy-date').value      = stock.buyDate || '';
+    document.getElementById('stk-notes').value         = stock.notes || '';
+    document.getElementById('stk-is-closed').checked   = stock.closed || false;
+    if (stock.closed) {
+      document.getElementById('stk-sell-fields').style.display = 'block';
+      document.getElementById('stk-sell-price').value = stock.sellPrice || '';
+      document.getElementById('stk-sell-date').value  = stock.sellDate  || '';
+    }
+  } else {
+    document.getElementById('stock-modal-title').textContent = 'ADD POSITION';
+    document.getElementById('stk-ticker').value        = '';
+    document.getElementById('stk-type').value          = 'Stock';
+    document.getElementById('stk-shares').value        = '';
+    document.getElementById('stk-buy-price').value     = '';
+    document.getElementById('stk-current-price').value = '';
+    document.getElementById('stk-buy-date').value      = new Date().toISOString().split('T')[0];
+    document.getElementById('stk-notes').value         = '';
+    document.getElementById('stk-is-closed').checked   = false;
+    document.getElementById('stk-sell-fields').style.display = 'none';
+    document.getElementById('stk-pnl-preview').textContent = '—';
+    document.getElementById('stk-pnl-preview-sub').textContent = '';
+  }
+
+  modal.style.display = 'block';
+  document.getElementById('stock-modal-overlay').style.display = 'block';
+}
+
+function closeStockModal() {
+  document.getElementById('stock-modal').style.display = 'none';
+  document.getElementById('stock-modal-overlay').style.display = 'none';
+}
+
+function toggleClosedFields() {
+  const closed = document.getElementById('stk-is-closed').checked;
+  document.getElementById('stk-sell-fields').style.display = closed ? 'block' : 'none';
+  updateStockPnLPreview();
+}
+
+function updateStockPnLPreview() {
+  const shares    = parseFloat(document.getElementById('stk-shares').value)        || 0;
+  const buyPrice  = parseFloat(document.getElementById('stk-buy-price').value)     || 0;
+  const closed    = document.getElementById('stk-is-closed').checked;
+  const refPrice  = closed
+    ? parseFloat(document.getElementById('stk-sell-price').value)   || 0
+    : parseFloat(document.getElementById('stk-current-price').value) || 0;
+
+  if (!shares || !buyPrice || !refPrice) {
+    document.getElementById('stk-pnl-preview').textContent    = '—';
+    document.getElementById('stk-pnl-preview-sub').textContent = '';
+    return;
+  }
+
+  const cost   = shares * buyPrice;
+  const value  = shares * refPrice;
+  const pnl    = value - cost;
+  const pct    = (pnl / cost * 100);
+  const el     = document.getElementById('stk-pnl-preview');
+  el.textContent  = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
+  el.style.color  = pnl > 0 ? 'var(--green)' : pnl < 0 ? 'var(--red)' : 'var(--text)';
+  document.getElementById('stk-pnl-preview-sub').textContent =
+    (pct >= 0 ? '+' : '') + pct.toFixed(2) + '% · Cost basis $' + cost.toFixed(2) + (closed ? ' · ' + (pnl >= 0 ? 'Realized gain' : 'Realized loss') : ' · Unrealized');
+}
+
+function saveStock() {
+  const ticker     = document.getElementById('stk-ticker').value.trim().toUpperCase();
+  const type       = document.getElementById('stk-type').value;
+  const shares     = parseFloat(document.getElementById('stk-shares').value);
+  const buyPrice   = parseFloat(document.getElementById('stk-buy-price').value);
+  const currPrice  = parseFloat(document.getElementById('stk-current-price').value) || null;
+  const buyDate    = document.getElementById('stk-buy-date').value;
+  const notes      = document.getElementById('stk-notes').value;
+  const closed     = document.getElementById('stk-is-closed').checked;
+  const sellPrice  = closed ? parseFloat(document.getElementById('stk-sell-price').value) || null : null;
+  const sellDate   = closed ? document.getElementById('stk-sell-date').value : null;
+  const editId     = document.getElementById('stock-edit-id').value;
+
+  if (!ticker || !shares || !buyPrice) { toast('Enter ticker, shares, and buy price', 'error'); return; }
+
+  const stock = {
+    id:           editId ? parseInt(editId) : Date.now(),
+    ticker, type, shares, buyPrice, currPrice, buyDate, notes,
+    closed, sellPrice, sellDate
+  };
+
+  const stocks = loadStocks().filter(function(s) { return s.id !== stock.id; });
+  stocks.unshift(stock);
+  saveStocksData(stocks);
+  closeStockModal();
+  renderStocks();
+  toast(ticker + ' position saved', 'success');
+}
+
+function deleteStock(id) {
+  if (!confirm('Delete this position?')) return;
+  saveStocksData(loadStocks().filter(function(s) { return s.id !== id; }));
+  renderStocks();
+}
+
+function clearStocks() {
+  if (!confirm('Clear all stock positions?')) return;
+  saveStocksData([]);
+  renderStocks();
+  toast('Positions cleared', 'info');
+}
+
+function renderStocks() {
+  const stocks  = loadStocks();
+  const open    = stocks.filter(function(s) { return !s.closed; });
+  const closed  = stocks.filter(function(s) { return s.closed; });
+
+  // Summary stats
+  let totalCost = 0, totalValue = 0, totalRealized = 0;
+  open.forEach(function(s) {
+    const cost  = s.shares * s.buyPrice;
+    const value = s.shares * (s.currPrice || s.buyPrice);
+    totalCost  += cost;
+    totalValue += value;
+  });
+  closed.forEach(function(s) {
+    if (s.sellPrice) totalRealized += s.shares * (s.sellPrice - s.buyPrice);
+  });
+
+  const unrealized    = totalValue - totalCost;
+  const unrealizedPct = totalCost > 0 ? (unrealized / totalCost * 100) : 0;
+  const totalReturn   = unrealized + totalRealized;
+
+  const valEl = document.getElementById('stk-stat-val');
+  if (valEl) {
+    valEl.textContent = '$' + totalValue.toFixed(2);
+    document.getElementById('stk-stat-cost').textContent = open.length + ' open position' + (open.length !== 1 ? 's' : '');
+    const unEl = document.getElementById('stk-stat-unrealized');
+    unEl.textContent = (unrealized >= 0 ? '+' : '') + '$' + unrealized.toFixed(2);
+    unEl.className = 'dash-stat-value ' + (unrealized > 0 ? 'pos' : unrealized < 0 ? 'neg' : '');
+    document.getElementById('stk-stat-unrealized-pct').textContent = (unrealizedPct >= 0 ? '+' : '') + unrealizedPct.toFixed(2) + '%';
+    const rlEl = document.getElementById('stk-stat-realized');
+    rlEl.textContent = (totalRealized >= 0 ? '+' : '') + '$' + totalRealized.toFixed(2);
+    rlEl.className = 'dash-stat-value ' + (totalRealized > 0 ? 'pos' : totalRealized < 0 ? 'neg' : '');
+    const totEl = document.getElementById('stk-stat-total');
+    totEl.textContent = (totalReturn >= 0 ? '+' : '') + '$' + totalReturn.toFixed(2);
+    totEl.className = 'dash-stat-value ' + (totalReturn > 0 ? 'pos' : totalReturn < 0 ? 'neg' : '');
+  }
+
+  // Open positions table
+  const openTbody = document.getElementById('stocks-open-tbody');
+  if (openTbody) {
+    if (open.length === 0) {
+      openTbody.innerHTML = '<tr><td colspan="10"><div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">No open positions.<br/>Click <b style="color:var(--accent)">+ Add Position</b> to start tracking.</div></div></td></tr>';
+    } else {
+      openTbody.innerHTML = open.map(function(s) {
+        const cost     = s.shares * s.buyPrice;
+        const value    = s.shares * (s.currPrice || s.buyPrice);
+        const pnl      = value - cost;
+        const pct      = cost > 0 ? (pnl / cost * 100) : 0;
+        const pnlCls   = pnl > 0 ? 'pnl-pos' : pnl < 0 ? 'pnl-neg' : 'pnl-neu';
+        const currDisp = s.currPrice ? '$' + s.currPrice.toFixed(2) : '<span style="color:var(--muted)">—</span>';
+        return '<tr>' +
+          '<td><span class="tag tag-inst">' + s.ticker + '</span></td>' +
+          '<td style="color:var(--muted);font-size:11px;">' + s.type + '</td>' +
+          '<td style="text-align:center;">' + s.shares + '</td>' +
+          '<td>$' + s.buyPrice.toFixed(2) + '</td>' +
+          '<td>' + currDisp + '</td>' +
+          '<td>$' + value.toFixed(2) + '</td>' +
+          '<td class="' + pnlCls + '">' + (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2) + '</td>' +
+          '<td class="' + pnlCls + '">' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%</td>' +
+          '<td style="color:var(--muted);font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (s.notes || '—') + '</td>' +
+          '<td><button onclick="openStockModal(' + s.id + ')" style="background:rgba(0,229,160,0.1);border:1px solid rgba(0,229,160,0.2);color:var(--accent);font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:5px;cursor:pointer;margin-right:4px;">EDIT</button>' +
+              '<button onclick="deleteStock(' + s.id + ')" style="background:rgba(255,69,96,0.1);border:1px solid rgba(255,69,96,0.2);color:var(--red);font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:5px;cursor:pointer;">✕</button></td>' +
+        '</tr>';
+      }).join('');
+    }
+  }
+
+  // Closed positions table
+  const closedTbody = document.getElementById('stocks-closed-tbody');
+  if (closedTbody) {
+    if (closed.length === 0) {
+      closedTbody.innerHTML = '<tr><td colspan="10"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No closed positions yet.</div></div></td></tr>';
+    } else {
+      closedTbody.innerHTML = closed.map(function(s) {
+        const pnl    = s.sellPrice ? s.shares * (s.sellPrice - s.buyPrice) : 0;
+        const pct    = s.buyPrice > 0 && s.sellPrice ? ((s.sellPrice - s.buyPrice) / s.buyPrice * 100) : 0;
+        const pnlCls = pnl > 0 ? 'pnl-pos' : pnl < 0 ? 'pnl-neg' : 'pnl-neu';
+        // Hold time
+        let holdTime = '—';
+        if (s.buyDate && s.sellDate) {
+          const days = Math.round((new Date(s.sellDate) - new Date(s.buyDate)) / 86400000);
+          holdTime = days + 'd';
+        }
+        return '<tr>' +
+          '<td><span class="tag tag-inst">' + s.ticker + '</span></td>' +
+          '<td style="color:var(--muted);font-size:11px;">' + s.type + '</td>' +
+          '<td style="text-align:center;">' + s.shares + '</td>' +
+          '<td>$' + s.buyPrice.toFixed(2) + '</td>' +
+          '<td>' + (s.sellPrice ? '$' + s.sellPrice.toFixed(2) : '—') + '</td>' +
+          '<td class="' + pnlCls + '">' + (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2) + '</td>' +
+          '<td class="' + pnlCls + '">' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%</td>' +
+          '<td style="color:var(--muted);">' + holdTime + '</td>' +
+          '<td style="color:var(--muted);font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (s.notes || '—') + '</td>' +
+          '<td><button onclick="deleteStock(' + s.id + ')" style="background:rgba(255,69,96,0.1);border:1px solid rgba(255,69,96,0.2);color:var(--red);font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:5px;cursor:pointer;">✕</button></td>' +
+        '</tr>';
+      }).join('');
+    }
+  }
+
+  // Portfolio allocation
+  const allocEl = document.getElementById('portfolio-allocation');
+  if (allocEl && totalValue > 0) {
+    const colors = ['var(--accent)','var(--blue)','#f59e0b','#8b5cf6','#ec4899','#10b981'];
+    allocEl.innerHTML = open.map(function(s, i) {
+      const value = s.shares * (s.currPrice || s.buyPrice);
+      const pct   = totalValue > 0 ? (value / totalValue * 100) : 0;
+      const color = colors[i % colors.length];
+      return '<div style="display:flex;flex-direction:column;gap:4px;">' +
+        '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);">' + s.ticker + ' ' + pct.toFixed(1) + '%</div>' +
+        '<div style="height:6px;width:' + Math.max(pct * 2, 20) + 'px;background:' + color + ';border-radius:3px;min-width:20px;"></div>' +
+      '</div>';
+    }).join('');
+  } else if (allocEl) {
+    allocEl.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);">No open positions to show allocation.</div>';
+  }
+}
+
+
+function renderSidebarGoals() {
+  const el = document.getElementById('sidebar-goals-list');
+  if (!el) return;
+  const goals = loadGoals();
+  if (goals.length === 0) {
+    el.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;padding:8px 0;">No goals set — <a href="#" onclick="switchView(\'goals\');return false;" style="color:var(--accent);">add one</a></div>';
+    return;
+  }
+
+  // Show max 4 most relevant goals
+  const show = goals.slice(0, 4);
+  el.innerHTML = show.map(function(g) {
+    const prog = getGoalProgress(g);
+    const pct  = Math.max(0, Math.min(100, prog.pct));
+
+    // Color logic
+    var barColor, statusColor;
+    if (g.type === 'max_loss' || g.type === 'max_loss_per_trade' || g.type === 'max_consec_losses' || g.type === 'max_trades_day') {
+      barColor    = pct >= 100 ? 'var(--red)' : pct >= 80 ? '#f59e0b' : 'var(--green)';
+      statusColor = pct >= 100 ? 'var(--red)' : pct >= 80 ? '#f59e0b' : 'var(--accent)';
+    } else {
+      barColor    = pct >= 100 ? 'var(--accent)' : pct >= 60 ? 'var(--green)' : pct >= 30 ? '#f59e0b' : 'var(--red)';
+      statusColor = barColor;
+    }
+
+    // Format values
+    const unit = prog.unit || '';
+    const isDollar = !unit && !prog.isRate;
+    const curStr = unit ? prog.current.toFixed(unit === 'days' ? 0 : 1) + unit
+                 : isDollar ? (prog.current >= 0 ? '+' : '') + '$' + Math.abs(prog.current).toFixed(2)
+                 : prog.current.toFixed(1);
+    const tgtStr = unit ? prog.target + unit
+                 : isDollar ? '$' + parseFloat(prog.target).toFixed(0)
+                 : prog.target;
+
+    const typeLabels = {
+      daily_pnl:'Daily P&L', weekly_pnl:'Weekly P&L', monthly_pnl:'Monthly P&L',
+      prop_target:'Prop Target', max_loss:'Daily Loss Limit', max_loss_per_trade:'Max/Trade',
+      max_consec_losses:'Max Loss Streak', win_rate:'Win Rate', profit_factor:'Prof. Factor',
+      avg_r:'Avg R', compliance:'Compliance', consec_green:'Green Streak',
+      max_trades_day:'Max Trades/Day', trades:'Trades/Week'
+    };
+
+    return '<div style="margin-bottom:10px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">' +
+        '<span style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;">' + (typeLabels[g.type] || g.type).toUpperCase() + '</span>' +
+        '<span style="font-family:var(--mono);font-size:11px;font-weight:700;color:' + statusColor + ';">' + curStr + ' / ' + tgtStr + '</span>' +
+      '</div>' +
+      '<div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;">' +
+        '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:2px;transition:width 0.4s;"></div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  if (goals.length > 4) {
+    var md = document.createElement('div');
+    md.style.cssText = 'font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;margin-top:6px;cursor:pointer;';
+    md.textContent = '+ ' + (goals.length - 4) + ' more goals';
+    md.onclick = function() { switchView('goals'); };
+    el.appendChild(md);
+  }
+}
+
+
+function updateSidebarGoals() {
+  const goals     = loadGoals();
+  const section   = document.getElementById('sidebar-goals-section');
+  const container = document.getElementById('sidebar-goals-list');
+  if (!section || !container) return;
+
+  if (goals.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+
+  const typeLabelsShort = {
+    daily_pnl: 'Daily P&L', weekly_pnl: 'Weekly P&L', monthly_pnl: 'Monthly P&L',
+    prop_target: 'Prop Target', max_loss: 'Max Loss', max_loss_per_trade: 'Max Loss/Trade',
+    max_consec_losses: 'Max Consec L', win_rate: 'Win Rate', profit_factor: 'Prof. Factor',
+    avg_r: 'Avg R', compliance: 'Compliance', consec_green: 'Green Streak',
+    max_trades_day: 'Max Trades/Day', trades: 'Trades/Week'
+  };
+
+  container.innerHTML = goals.map(function(g) {
+    const prog = getGoalProgress(g);
+    const pct  = prog.pct;
+    const isLoss = prog.isLoss;
+    let fillColor = isLoss
+      ? (pct >= 100 ? 'var(--red)' : pct >= 80 ? '#f59e0b' : 'var(--green)')
+      : (pct >= 100 ? 'var(--accent)' : pct >= 60 ? 'var(--green)' : pct >= 30 ? '#f59e0b' : 'var(--red)');
+
+    const unit = prog.unit || '';
+    const isDollar = !unit && !prog.isRate;
+    const currentStr = unit ? prog.current.toFixed(unit === 'days' ? 0 : 1) + unit
+                     : isDollar ? (prog.current >= 0 ? '+' : '') + '$' + Math.abs(prog.current).toFixed(0)
+                     : prog.current.toFixed(1);
+    const targetStr = unit ? prog.target + unit
+                   : isDollar ? '$' + parseFloat(prog.target).toFixed(0)
+                   : prog.target;
+
+    return '<div style="margin-bottom:10px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">' +
+        '<span style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;">' + (typeLabelsShort[g.type] || g.type).toUpperCase() + '</span>' +
+        '<span style="font-family:var(--mono);font-size:10px;color:var(--text);font-weight:700;">' + currentStr + ' / ' + targetStr + '</span>' +
+      '</div>' +
+      '<div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;">' +
+        '<div style="height:100%;width:' + pct + '%;background:' + fillColor + ';border-radius:2px;transition:width 0.4s;"></div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
 // == INIT ==
 (async function init() {
   // Restore max loss
@@ -4777,6 +5632,7 @@ function renderBreakdowns(trades) {
   // Check if user is already signed in
   const { data: { session } } = await sb.auth.getSession();
 
+  initTheme();
   if (session) {
     // Already logged in — skip auth screen
     await onSignedIn(session.user);
@@ -5026,5 +5882,97 @@ function renderBreakdowns(trades) {
   <button onclick="if(confirm('Sign out?'))signOut()" style="width:100%;background:transparent;border:1px solid rgba(255,69,96,0.3);color:var(--red);font-family:'DM Mono',monospace;font-size:12px;padding:10px;border-radius:8px;cursor:pointer;letter-spacing:1px;">SIGN OUT</button>
 </div>
 
+
+<!-- Goals Modal -->
+<div id="goal-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:450;" onclick="closeGoalModal()"></div>
+<div id="goal-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:420px;max-width:95vw;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;z-index:460;">
+  <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--blue));border-radius:16px 16px 0 0;"></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;">ADD GOAL</div>
+    <div onclick="closeGoalModal()" style="cursor:pointer;color:var(--muted);font-size:20px;padding:4px 8px;">✕</div>
+  </div>
+  <label>Goal Type</label>
+  <select id="goal-type" onchange="updateGoalLabel()">
+    <optgroup label="P&L Goals">
+      <option value="daily_pnl">Daily P&L Target</option>
+      <option value="weekly_pnl">Weekly P&L Target</option>
+      <option value="monthly_pnl">Monthly P&L Target</option>
+      <option value="prop_target">Prop Firm Profit Target</option>
+    </optgroup>
+    <optgroup label="Risk Goals">
+      <option value="max_loss">Max Daily Loss Limit</option>
+      <option value="max_loss_per_trade">Max Loss Per Trade</option>
+      <option value="max_consec_losses">Max Consecutive Losses</option>
+    </optgroup>
+    <optgroup label="Performance Goals">
+      <option value="win_rate">Win Rate Target</option>
+      <option value="profit_factor">Profit Factor Target</option>
+      <option value="avg_r">Average R Per Trade</option>
+      <option value="compliance">Rule Compliance Rate (%)</option>
+      <option value="consec_green">Consecutive Green Days</option>
+    </optgroup>
+    <optgroup label="Discipline Goals">
+      <option value="max_trades_day">Max Trades Per Day</option>
+      <option value="trades">Trades Per Week</option>
+    </optgroup>
+  </select>
+  <label id="goal-target-label">Target ($)</label>
+  <input type="number" id="goal-target" placeholder="500" step="0.01"/>
+  <label>Notes (optional)</label>
+  <input type="text" id="goal-notes" placeholder="e.g. Focus on MES only"/>
+  <button class="btn btn-primary" onclick="saveGoal()" style="width:100%;margin-top:4px;">SAVE GOAL</button>
+</div>
+
+<!-- Share Modal -->
+<div id="share-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:450;" onclick="closeShareModal()"></div>
+<div id="share-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:480px;max-width:95vw;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;z-index:460;">
+  <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--blue));border-radius:16px 16px 0 0;"></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;">SHARE</div>
+    <div onclick="closeShareModal()" style="cursor:pointer;color:var(--muted);font-size:20px;padding:4px 8px;">✕</div>
+  </div>
+
+  <!-- Share card preview -->
+  <div id="share-card" style="background:linear-gradient(135deg,#080c12 0%,#0f1520 100%);border:1px solid #1e2840;border-radius:12px;padding:24px;margin-bottom:16px;position:relative;overflow:hidden;">
+    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#00e5a0,#00b8ff);"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:#fff;">CHART<span style="color:#00e5a0;">D</span></div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:#8b9ab8;letter-spacing:1px;" id="share-date"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+      <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:12px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:#8b9ab8;letter-spacing:2px;margin-bottom:6px;">NET P&L</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;line-height:1;" id="share-pnl">$0</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:12px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:#8b9ab8;letter-spacing:2px;margin-bottom:6px;">WIN RATE</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;line-height:1;color:#00e5a0;" id="share-wr">—</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:12px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:#8b9ab8;letter-spacing:2px;margin-bottom:6px;">TRADES</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;line-height:1;" id="share-trades">0</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:12px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:#8b9ab8;letter-spacing:2px;margin-bottom:6px;">PROFIT FACTOR</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;line-height:1;" id="share-pf">—</div>
+      </div>
+    </div>
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:#8b9ab8;text-align:center;letter-spacing:1px;">journal.getchartd.com</div>
+  </div>
+
+  <!-- Range selector for share card -->
+  <div style="display:flex;gap:6px;margin-bottom:16px;">
+    <button class="dash-range-btn active" onclick="updateShareCard('today',this)">Today</button>
+    <button class="dash-range-btn" onclick="updateShareCard('week',this)">This Week</button>
+    <button class="dash-range-btn" onclick="updateShareCard('month',this)">This Month</button>
+    <button class="dash-range-btn" onclick="updateShareCard('all',this)">All Time</button>
+  </div>
+
+  <div style="display:flex;gap:10px;">
+    <button onclick="downloadShareCard()" class="btn btn-primary" style="flex:1;background:var(--accent);color:#080c12;font-weight:700;">↓ Save as Image</button>
+    <button onclick="copyShareStats()" class="btn btn-secondary" style="flex:1;">📋 Copy Stats</button>
+  </div>
+</div>
+
+
 </body>
-</html>
