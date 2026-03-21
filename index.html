@@ -1985,16 +1985,6 @@ function doGet(e) {<br/>
   <!-- ── SIDEBAR ─────────────────────────────────────────────── -->
   <aside class="sidebar">
 
-    <!-- Sidebar Navigation -->
-    <div class="sidebar-section" style="padding-bottom:0;border-bottom:none;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:4px;">
-        <button onclick="switchView('dashboard');closeSidebar()" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:11px;cursor:pointer;letter-spacing:1px;width:100%;">📊 Dashboard</button>
-        <button onclick="switchView('futures');closeSidebar()" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:11px;cursor:pointer;letter-spacing:1px;width:100%;">⚡ Futures</button>
-        <button onclick="switchView('options');closeSidebar()" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:11px;cursor:pointer;letter-spacing:1px;width:100%;">📈 Options</button>
-        <button onclick="switchView('goals');closeSidebar()" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:11px;cursor:pointer;letter-spacing:1px;width:100%;">🎯 Goals</button>
-      </div>
-    </div>
-
     <!-- Today's P&L Summary -->
     <div class="sidebar-section">
       <div class="sidebar-label">Today's Session</div>
@@ -2126,6 +2116,7 @@ function doGet(e) {<br/>
       <button class="view-tab" id="tab-futures" onclick="switchView('futures')">Futures</button>
       <button class="view-tab" id="tab-options" onclick="switchView('options')">Options</button>
       <button class="view-tab" id="tab-goals" onclick="switchView('goals')">Goals</button>
+      <button class="view-tab" id="tab-accounts" onclick="switchView('accounts')">Accounts</button>
       <div style="flex:1;"></div>
       <div style="display:flex;align-items:center;gap:6px;padding:8px 0;">
         <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">LIMIT $</span>
@@ -2309,6 +2300,21 @@ function doGet(e) {<br/>
           <div class="dash-stat-sub" id="dstat-consistency-sub">green days</div>
         </div>
       </div>
+
+      <!-- Daily Notes -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:2px;" id="daily-notes-date">TODAY'S NOTES</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);" id="daily-notes-saved"></div>
+        </div>
+        <textarea id="daily-notes-input" placeholder="Today's bias, key levels, plan for the session..." style="width:100%;min-height:80px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);resize:vertical;outline:none;transition:border-color 0.2s;box-sizing:border-box;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)';saveDailyNotes()"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+          <button onclick="saveDailyNotes()" style="background:var(--accent);color:#080c12;border:none;font-family:var(--mono);font-size:10px;font-weight:700;padding:6px 14px;border-radius:6px;cursor:pointer;letter-spacing:1px;">SAVE</button>
+          <button onclick="togglePastNotes()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 14px;border-radius:6px;cursor:pointer;letter-spacing:1px;" id="past-notes-btn">PAST NOTES ▼</button>
+        </div>
+        <div id="past-notes-list" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;max-height:200px;overflow-y:auto;"></div>
+      </div>
+
     </div>
 
     <!-- ── FUTURES VIEW ────────────────────────────────────────── -->
@@ -2479,6 +2485,19 @@ function doGet(e) {<br/>
       </div>
     </div>
 
+    <!-- ── CHALLENGE VIEW ────────────────────────────────────────── -->
+    <div class="main" id="view-accounts" style="display:none;">
+      <div class="section-header">
+        <div class="section-title">Accounts</div>
+        <button class="btn btn-primary" style="width:auto;padding:10px 20px;font-size:13px;font-weight:700;background:var(--accent);color:#080c12;" onclick="openAccountModal()">+ Add Account</button>
+      </div>
+      <div id="accounts-container">
+        <div class="empty-state">
+          <div class="empty-icon">🏆</div>
+          <div class="empty-text">No challenge accounts tracked yet.<br/>Click <b style="color:var(--accent)">+ Add Account</b> to get started.</div>
+        </div>
+      </div>
+    </div>
 
   </div>
 </div>
@@ -2556,9 +2575,10 @@ const state = {
   gsUrl: '',
   maxLoss: 1000,
   commission: 1.00,
-  microComm: parseFloat(localStorage.getItem('chartd_microComm')) || 1.00,
-  miniComm:  parseFloat(localStorage.getItem('chartd_miniComm'))  || 2.00,
-  pointValues: { MNQ: 2, MES: 5, MCL: 100, MGC: 10, NQ: 20, ES: 50, CL: 1000, GC: 100, RTY: 50, YM: 5, SI: 5000, NG: 10000 },
+  microComm:   parseFloat(localStorage.getItem('chartd_microComm'))  || 1.00,
+  miniComm:    parseFloat(localStorage.getItem('chartd_miniComm'))   || 2.00,
+  perFillFee:  parseFloat(localStorage.getItem('chartd_perFillFee') || '0'),
+  pointValues: { MNQ: 2, MES: 5, MCL: 100, MGC: 10, NQ: 20, ES: 50, CL: 1000, GC: 100, RTY: 50, YM: 5, M2K: 5, MBT: 1, MHG: 12.5, MYM: 0.5, SI: 5000, NG: 10000 },
   instrumentMap: {
     'MNQM5': 'MNQ', 'MESM5': 'MES', 'MCLM5': 'MCL', 'MGCM5': 'MGC',
     'MNQH5': 'MNQ', 'MESH5': 'MES', 'MCLH5': 'MCL', 'MGCH5': 'MGC',
@@ -2646,12 +2666,14 @@ function addPosition(p) {
   const pv  = state.pointValues[p.inst] || 1;
   const dir = p.direction === 'Long' ? 1 : -1;
 
-  // Calculate each partial
+  // Calculate each partial — use actual fill commission if available
   const partials = p.partials.map((part, i) => {
-    const gross = (part.exitPrice - part.entryPrice) * dir * pv * part.contracts;
-    const comm  = part.contracts * getCommission(p.inst);
-    const net   = gross - comm;
-    return { ...part, gross, comm, net, r: null, id: p.id + '-partial-' + i };
+    const gross     = (part.exitPrice - part.entryPrice) * dir * pv * part.contracts;
+    const csvPartComm = (part.entryComm != null && part.exitComm != null)
+      ? (part.entryComm + part.exitComm)
+      : part.contracts * getCommission(p.inst);
+    const net = gross - csvPartComm;
+    return { ...part, gross, comm: csvPartComm, net, r: null, id: p.id + '-partial-' + i };
   });
 
   // Position totals — use CSV P&L if available, otherwise calculate
@@ -2691,7 +2713,8 @@ function addPosition(p) {
     expanded: false,
     rules: '', setup: '', emoIn: 5, emoOut: 5,
     right: '', wrong: '', lesson: '',
-    source: p.source
+    source: p.source,
+    acct: p.acct || 'default'
   };
 
   state.trades.unshift(position);
@@ -3417,7 +3440,7 @@ function parseTradovateCSV(text, filename) {
   const iQty   = ci('quantity')   >= 0 ? ci('quantity')   : ci('_qty');
   const iPrice = ci('price')      >= 0 ? ci('price')      : ci('_price');
   const iSym   = ci('product')    >= 0 ? ci('product')    : ci('contract');
-  const iAcct  = ci('account')    >= 0 ? ci('account')    : (ci('_accountid') >= 0 ? ci('_accountid') : -1);
+  const iAcct  = ci('account'); // Always use the 'Account' column
   const iComm  = ci('commission') >= 0 ? ci('commission') : -1;
   const fileAcctFills = filename ? filename.replace(/\.csv$/i,'').trim() : 'default';
 
@@ -3467,7 +3490,10 @@ function parseTradovateCSV(text, filename) {
     const acctVal = iAcct >= 0 && cols[iAcct] ? cols[iAcct].replace(/"/g,'').trim() : fileAcctFills;
     const commVal = iComm >= 0 && cols[iComm] ? parseFloat(cols[iComm]) || 0 : 0;
     if (!sym || !bsNorm || !qty || !price) { skipped++; return; }
-    fills.push({ sym, bs: bsNorm, qty, price, time, acct: acctVal, comm: commVal });
+    // Add per-fill exchange/NFA fees on top of broker commission
+    var totalFillComm = commVal + (state.perFillFee || 0);
+    fills.push({ sym, bs: bsNorm, qty, price, time, acct: acctVal, comm: totalFillComm });
+    if (fills.length === 1) addLog('First fill acct: ' + acctVal + ' (col ' + iAcct + ')', 'info');
   });
 
   addLog(`${fills.length} fills parsed, ${skipped} rows skipped`, 'info');
@@ -3501,7 +3527,7 @@ function parseTradovateCSV(text, filename) {
         while (openFills.length > 0 && closeRem > 0) {
           const open = openFills[0];
           const contracts = Math.min(open.remaining, closeRem);
-          partials.push({ entryPrice: open.price, exitPrice: fill.price, contracts, entryTime: open.time, exitTime: fill.time });
+          partials.push({ entryPrice: open.price, exitPrice: fill.price, contracts, entryTime: open.time, exitTime: fill.time, entryComm: (open.comm || 0) * contracts / open.qty, exitComm: (fill.comm || 0) * contracts / fill.qty });
           entryFillsUsed.push({ price: open.price, contracts });
           closeRem       -= contracts;
           open.remaining -= contracts;
@@ -3521,6 +3547,11 @@ function parseTradovateCSV(text, filename) {
           const direction = fill.bs === 'sell' ? 'Long' : 'Short'; // closing sell = was long
 
           const posId = `pos-${sym}-${positionCount}-${fill.time.getTime()}`;
+          // Sum commission from all fills involved in this position
+          var totalFillComm = partials.reduce(function(s, part) {
+            return s + (part.entryComm || 0) + (part.exitComm || 0);
+          }, 0);
+
           addPosition({
             acct: fill.acct || fileAcctFills,
             id: posId,
@@ -3532,6 +3563,7 @@ function parseTradovateCSV(text, filename) {
             entryTime: partials[0].entryTime,
             exitTime:  fill.time,
             partials,
+            comm: totalFillComm > 0 ? totalFillComm : null,
             stop: 0,
             source: 'csv'
           });
@@ -3864,8 +3896,9 @@ function showSettings() {
   document.getElementById('settings-modal').style.display = 'block';
   document.getElementById('settings-overlay').style.display = 'block';
   // Pre-fill values
-  document.getElementById('set-micro-comm').value = state.microComm || 1.00;
-  document.getElementById('set-mini-comm').value  = state.miniComm  || 2.00;
+  document.getElementById('set-micro-comm').value  = state.microComm  || 1.00;
+  document.getElementById('set-mini-comm').value   = state.miniComm   || 2.00;
+  document.getElementById('set-per-fill-fee').value = state.perFillFee != null ? state.perFillFee : 0.12;
   document.getElementById('set-gs-url').value     = state.gsUrl || '';
   document.getElementById('set-max-loss').value   = state.maxLoss || 1000;
 }
@@ -3876,18 +3909,21 @@ function closeSettings() {
 }
 
 function saveSettings() {
-  const microComm = parseFloat(document.getElementById('set-micro-comm').value) || 1.00;
-  const miniComm  = parseFloat(document.getElementById('set-mini-comm').value)  || 2.00;
+  const microComm   = parseFloat(document.getElementById('set-micro-comm').value)   || 1.00;
+  const miniComm    = parseFloat(document.getElementById('set-mini-comm').value)    || 2.00;
+  const perFillFee  = parseFloat(document.getElementById('set-per-fill-fee').value) || 0;
   const gsUrl     = document.getElementById('set-gs-url').value.trim();
   const maxLoss   = parseFloat(document.getElementById('set-max-loss').value)   || 1000;
 
-  state.microComm = microComm;
-  state.miniComm  = miniComm;
+  state.microComm  = microComm;
+  state.miniComm   = miniComm;
+  state.perFillFee = perFillFee;
   state.gsUrl     = gsUrl;
   state.maxLoss   = maxLoss;
 
-  localStorage.setItem('chartd_microComm', microComm);
-  localStorage.setItem('chartd_miniComm',  miniComm);
+  localStorage.setItem('chartd_microComm',  microComm);
+  localStorage.setItem('chartd_miniComm',   miniComm);
+  localStorage.setItem('chartd_perFillFee', perFillFee);
   localStorage.setItem('chartd_gsUrl',     gsUrl);
   localStorage.setItem('chartd_maxLoss',   maxLoss);
 
@@ -4068,7 +4104,7 @@ function closeMobileMore() {
 
 function switchView(view) {
   currentView = view;
-  ['dashboard','futures','options','goals'].forEach(v => {
+  ['dashboard','futures','options','goals','accounts'].forEach(v => {
     const el = document.getElementById('view-' + v);
     if (el) el.style.display = v === view ? 'block' : 'none';
     const tab = document.getElementById('tab-' + v);
@@ -4077,6 +4113,7 @@ function switchView(view) {
   if (view === 'dashboard') renderDashboard();
   if (view === 'options')   renderOptionsTable();
   if (view === 'goals')     renderGoals();
+  if (view === 'accounts') renderAccounts();
 }
 
 function setDashRange(range, btn) {
@@ -4785,7 +4822,7 @@ function updateSidebarStats() {
   const todayStr = new Date().toDateString();
   const trades   = state.trades.filter(t => {
     const d = t.time instanceof Date ? t.time : new Date(t.time);
-    return d.toDateString() === todayStr;
+    return getTradingDateStr(d) === todayStr;
   });
   const totalNet = trades.reduce((s,t) => s + (t.net||0), 0);
   const wins     = trades.filter(t => t.net > 0).length;
@@ -5049,7 +5086,7 @@ function renderExtraStats(trades) {
   // Group trades by calendar day
   var dayPnL = {};
   trades.forEach(function(t) {
-    var d = (t.time instanceof Date ? t.time : new Date(t.time)).toDateString();
+    var d = getTradingDateStr(t.time instanceof Date ? t.time : new Date(t.time));
     dayPnL[d] = (dayPnL[d] || 0) + (t.net || 0);
   });
   var days = Object.keys(dayPnL).sort(function(a,b) { return new Date(a) - new Date(b); });
@@ -5105,7 +5142,7 @@ function renderExtraStats(trades) {
   // Consistency — always uses ALL trades regardless of filter
   var allDayPnL = {};
   state.trades.forEach(function(t) {
-    var d = (t.time instanceof Date ? t.time : new Date(t.time)).toDateString();
+    var d = getTradingDateStr(t.time instanceof Date ? t.time : new Date(t.time));
     allDayPnL[d] = (allDayPnL[d] || 0) + (t.net || 0);
   });
   var allDays = Object.keys(allDayPnL);
@@ -5127,7 +5164,7 @@ function renderBreakdowns(trades) {
   const dowNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const dowPnL = {};
   trades.forEach(function(t) {
-    const d = t.time instanceof Date ? t.time : new Date(t.time);
+    const d = getTradingDate(t.time instanceof Date ? t.time : new Date(t.time));
     const day = d.getDay();
     if (!dowPnL[day]) dowPnL[day] = { net: 0, count: 0 };
     dowPnL[day].net += t.net || 0;
@@ -5873,6 +5910,601 @@ function updateSidebarGoals() {
   }).join('');
 }
 
+
+// ============================================================
+// DAILY NOTES
+// ============================================================
+function getDailyNotesKey() {
+  return 'chartd_notes_' + new Date().toISOString().split('T')[0];
+}
+
+function loadDailyNotes() {
+  const key  = getDailyNotesKey();
+  const el   = document.getElementById('daily-notes-input');
+  const lbl  = document.getElementById('daily-notes-date');
+  const saved = document.getElementById('daily-notes-saved');
+  if (!el) return;
+
+  const today = new Date().toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+  if (lbl) lbl.textContent = "TODAY — " + today.toUpperCase();
+
+  const note = localStorage.getItem(key) || '';
+  el.value = note;
+  if (note && saved) saved.textContent = 'Auto-saved';
+}
+
+function saveDailyNotes() {
+  const el  = document.getElementById('daily-notes-input');
+  const saved = document.getElementById('daily-notes-saved');
+  if (!el) return;
+  localStorage.setItem(getDailyNotesKey(), el.value);
+  if (saved) { saved.textContent = 'Saved ✓'; saved.style.color = 'var(--green)'; setTimeout(function() { if(saved) saved.style.color = ''; }, 2000); }
+}
+
+function togglePastNotes() {
+  const list = document.getElementById('past-notes-list');
+  const btn  = document.getElementById('past-notes-btn');
+  if (!list) return;
+  const isOpen = list.style.display !== 'none';
+  list.style.display = isOpen ? 'none' : 'block';
+  if (btn) btn.textContent = isOpen ? 'PAST NOTES ▼' : 'PAST NOTES ▲';
+  if (!isOpen) renderPastNotes();
+}
+
+function renderPastNotes() {
+  const list = document.getElementById('past-notes-list');
+  if (!list) return;
+  const today = getDailyNotesKey();
+  const notes = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('chartd_notes_') && k !== today) {
+      const date = k.replace('chartd_notes_', '');
+      const text = localStorage.getItem(k);
+      if (text && text.trim()) notes.push({ date, text });
+    }
+  }
+  notes.sort(function(a, b) { return b.date.localeCompare(a.date); });
+
+  if (notes.length === 0) {
+    list.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:8px 0;">No past notes yet.</div>';
+    return;
+  }
+
+  list.innerHTML = notes.slice(0, 10).map(function(n) {
+    const d = new Date(n.date + 'T12:00:00');
+    const label = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+    return '<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);">' +
+      '<div style="font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:1px;margin-bottom:4px;">' + label.toUpperCase() + '</div>' +
+      '<div style="font-size:12px;color:var(--muted);line-height:1.5;">' + (n.text||'').split('\n').join('<br/>') + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// Auto-save on typing
+document.addEventListener('input', function(e) {
+  if (e.target && e.target.id === 'daily-notes-input') {
+    clearTimeout(window._notesSaveTimer);
+    window._notesSaveTimer = setTimeout(saveDailyNotes, 1000);
+  }
+});
+
+// ============================================================
+// CHALLENGE TRACKER
+// ============================================================
+const CHALLENGE_DATA = {
+  lucid: {
+    flex: {
+      label: 'LucidFlex',
+      hasDLL: false,
+      hasEval: true,
+      consistencyEval: 50,
+      consistencyFunded: null,
+      sizes: {
+        25000:  { target: 1250, mll: 1000, dll: 0 },
+        50000:  { target: 3000, mll: 2000, dll: 0 },
+        100000: { target: 6000, mll: 3000, dll: 0 },
+        150000: { target: 9000, mll: 4500, dll: 0 }
+      }
+    },
+    pro: {
+      label: 'LucidPro',
+      hasDLL: true,
+      hasEval: true,
+      consistencyEval: 40,
+      consistencyFunded: 40,
+      sizes: {
+        25000:  { target: 1500, mll: 1000, dll: 0 },
+        50000:  { target: 3000, mll: 2000, dll: 1200 },
+        100000: { target: 6000, mll: 3000, dll: 1800 },
+        150000: { target: 9000, mll: 4500, dll: 2700 }
+      }
+    },
+    direct: {
+      label: 'LucidDirect',
+      hasDLL: true,
+      hasEval: false,
+      consistencyEval: null,
+      consistencyFunded: 20,
+      sizes: {
+        25000:  { target: 0, mll: 1000, dll: 600 },
+        50000:  { target: 0, mll: 2000, dll: 1200 },
+        100000: { target: 0, mll: 3000, dll: 1800 },
+        150000: { target: 0, mll: 4500, dll: 2700 }
+      }
+    }
+  },
+  tradeify: {
+    growth: {
+      label: 'Growth',
+      hasDLL: true,
+      hasEval: true,
+      consistencyEval: null,
+      consistencyFunded: 35,
+      sizes: {
+        50000:  { target: 3000, mll: 2000, dll: 1000 },
+        100000: { target: 6000, mll: 3500, dll: 2000 },
+        150000: { target: 9000, mll: 5000, dll: 3000 }
+      }
+    },
+    select: {
+      label: 'Select',
+      hasDLL: false,
+      hasEval: true,
+      consistencyEval: 40,
+      consistencyFunded: null,
+      sizes: {
+        50000:  { target: 3000, mll: 2000, dll: 0 },
+        100000: { target: 6000, mll: 3500, dll: 0 },
+        150000: { target: 9000, mll: 5000, dll: 0 }
+      }
+    },
+    lightning: {
+      label: 'Lightning',
+      hasDLL: true,
+      hasEval: false,
+      consistencyEval: null,
+      consistencyFunded: '20→25→30%',
+      sizes: {
+        25000:  { target: 0, mll: 1500, dll: null },
+        50000:  { target: 0, mll: 2000, dll: null },
+        100000: { target: 0, mll: 3500, dll: null },
+        150000: { target: 0, mll: 5000, dll: null }
+      }
+    }
+  }
+};
+
+function getAccountTypes(firm) {
+  if (firm === 'lucid')    return [['flex','LucidFlex'],['pro','LucidPro'],['direct','LucidDirect']];
+  if (firm === 'tradeify') return [['growth','Growth'],['select','Select'],['lightning','Lightning']];
+  return [];
+}
+
+function updateChallengeFields(changedField) {
+  var firm   = document.getElementById('ch-firm').value;
+  var typeEl = document.getElementById('ch-type');
+  var sizeEl = document.getElementById('ch-size');
+
+  // If firm changed, rebuild type options
+  if (!changedField || changedField === 'firm') {
+    var types = getAccountTypes(firm);
+    var curType = typeEl.value;
+    typeEl.innerHTML = types.map(function(t) {
+      return '<option value="' + t[0] + '"' + (t[0] === curType ? ' selected' : '') + '>' + t[1] + '</option>';
+    }).join('');
+  }
+
+  // Always rebuild size options based on current firm+type
+  var type = typeEl.value;
+  var firmData = CHALLENGE_DATA[firm];
+  var typeData = firmData && firmData[type];
+  var sizes = typeData ? Object.keys(typeData.sizes).map(Number).sort(function(a,b){return a-b;}) : [25000,50000,100000,150000];
+  var curSize = parseInt(sizeEl.value);
+  sizeEl.innerHTML = sizes.map(function(s) {
+    return '<option value="' + s + '"' + (s === curSize ? ' selected' : '') + '>$' + s.toLocaleString() + '</option>';
+  }).join('');
+
+  populateChallengeAcctSelect();
+  updateChallengePreview();
+}
+
+function populateChallengeAcctSelect() {
+  var sel = document.getElementById('ch-linked-acct');
+  if (!sel) return;
+  // Get unique accounts from loaded trades
+  var accts = [];
+  state.trades.forEach(function(t) {
+    var a = t.acct || 'default';
+    if (accts.indexOf(a) < 0) accts.push(a);
+  });
+  accts.sort();
+  sel.innerHTML = '<option value="">— None (manual P&L only) —</option>' +
+    accts.map(function(a) {
+      return '<option value="' + a + '">' + (a === 'default' ? 'Default Account' : a) + '</option>';
+    }).join('');
+}
+
+function updateChallengePreview() {
+  const firm  = document.getElementById('ch-firm').value;
+  const type  = document.getElementById('ch-type').value;
+  const size  = parseInt(document.getElementById('ch-size').value);
+  const grid  = document.getElementById('ch-rules-grid');
+  if (!grid) return;
+
+  const firmData = CHALLENGE_DATA[firm];
+  const typeData = firmData && firmData[type];
+  const sizeData = typeData && typeData.sizes[size];
+  if (!sizeData) { grid.innerHTML = ''; return; }
+
+  const rules = [
+    { label: 'Profit Target', val: sizeData.target > 0 ? '$' + sizeData.target.toLocaleString() : 'N/A (Instant Funded)' },
+    { label: 'Max Drawdown (MLL)', val: '$' + sizeData.mll.toLocaleString() + ' EOD' },
+    { label: 'Daily Loss Limit', val: sizeData.dll ? '$' + sizeData.dll.toLocaleString() : 'None' },
+    { label: 'Consistency Rule', val: typeData.consistencyEval ? typeData.consistencyEval + '% (eval)' : (typeData.consistencyFunded ? (typeof typeData.consistencyFunded === 'string' ? typeData.consistencyFunded : typeData.consistencyFunded + '%') : 'None') },
+  ];
+
+  grid.innerHTML = rules.map(function(r) {
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:10px;">' +
+      '<div style="font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:3px;">' + r.label.toUpperCase() + '</div>' +
+      '<div style="font-size:13px;font-weight:700;color:var(--text);">' + r.val + '</div>' +
+    '</div>';
+  }).join('');
+
+  // Show live P&L preview if account linked
+  var linkedAcct = document.getElementById('ch-linked-acct') ? document.getElementById('ch-linked-acct').value : '';
+  var startDate  = document.getElementById('ch-start-date') ? document.getElementById('ch-start-date').value : '';
+  var previewEl  = document.getElementById('ch-pnl-preview');
+  var previewVal = document.getElementById('ch-pnl-preview-val');
+  var previewSub = document.getElementById('ch-pnl-preview-sub');
+  if (linkedAcct && previewEl) {
+    var acctTrades = state.trades.filter(function(t) {
+      if ((t.acct || 'default') !== linkedAcct) return false;
+      if (startDate) {
+        var td = t.time instanceof Date ? t.time : new Date(t.time);
+        return td >= new Date(startDate + 'T00:00:00');
+      }
+      return true;
+    });
+    var livePnl = acctTrades.reduce(function(s,t) { return s + (t.net||0); }, 0);
+    previewEl.style.display = 'block';
+    if (previewVal) {
+      previewVal.textContent = (livePnl >= 0 ? '+' : '') + '$' + Math.abs(livePnl).toFixed(2);
+      previewVal.style.color = livePnl >= 0 ? 'var(--green)' : 'var(--red)';
+    }
+    if (previewSub) previewSub.textContent = acctTrades.length + ' trades' + (startDate ? ' since ' + new Date(startDate+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '');
+  } else if (previewEl) {
+    previewEl.style.display = 'none';
+  }
+}
+
+function loadAccounts() {
+  const s = localStorage.getItem('chartd_accounts');
+  return s ? JSON.parse(s) : [];
+}
+function saveAccountsData(data) {
+  localStorage.setItem('chartd_accounts', JSON.stringify(data));
+}
+
+function openAccountModal() {
+  document.getElementById('account-modal').style.display = 'block';
+  document.getElementById('account-modal-overlay').style.display = 'block';
+  updateChallengeFields();
+  populateChallengeAcctSelect();
+}
+function closeAccountModal() {
+  document.getElementById('account-modal').style.display = 'none';
+  document.getElementById('account-modal-overlay').style.display = 'none';
+}
+
+function saveAccount() {
+  const firm     = document.getElementById('ch-firm').value;
+  const type     = document.getElementById('ch-type').value;
+  const size     = parseInt(document.getElementById('ch-size').value);
+  const phase    = document.getElementById('ch-phase').value;
+  const nickname = document.getElementById('ch-nickname').value.trim();
+  const linkedAcct = document.getElementById('ch-linked-acct') ? document.getElementById('ch-linked-acct').value : '';
+  const startDate   = document.getElementById('ch-start-date') ? document.getElementById('ch-start-date').value : '';
+  // P&L auto-calculated from linked account — no manual entry
+  var currentPnl = 0;
+
+  const typeData = CHALLENGE_DATA[firm] && CHALLENGE_DATA[firm][type];
+  const sizeData = typeData && typeData.sizes[size];
+  if (!sizeData) { toast('Invalid selection', 'error'); return; }
+
+  const acct = {
+    id:       Date.now(),
+    firm,
+    type,
+    size,
+    phase,
+    nickname,
+    linkedAcct,
+    startDate,
+    currentPnl,
+    payouts: [],
+    target:   sizeData.target,
+    mll:      sizeData.mll,
+    dll:      sizeData.dll,
+    consistency: typeData.consistencyEval || typeData.consistencyFunded,
+    hasDLL:   typeData.hasDLL,
+    typeLabel: typeData.label,
+    created:  new Date().toISOString()
+  };
+
+  const challenges = loadAccounts();
+  challenges.unshift(acct);
+  saveAccountsData(challenges);
+  closeAccountModal();
+  renderAccounts();
+  toast('Account added', 'success');
+
+  // Reset
+  document.getElementById('ch-nickname').value = '';
+  document.getElementById('ch-current-pnl').value = '0';
+}
+
+function deleteAccount(id) {
+  if (!confirm('Remove this account?')) return;
+  saveAccountsData(loadAccounts().filter(function(c) { return c.id !== id; }));
+  renderAccounts();
+}
+
+function updateChallengePnL(id, val) {
+  const challenges = loadAccounts();
+  const acct = challenges.find(function(c) { return c.id === id; });
+  if (acct) { acct.currentPnl = parseFloat(val) || 0; saveAccountsData(challenges); renderAccounts(); }
+}
+
+function renderAccounts() {
+  const container = document.getElementById('accounts-container');
+  if (!container) return;
+  const challenges = loadAccounts();
+
+  if (challenges.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏆</div><div class="empty-text">No challenge accounts tracked yet.<br/>Click <b style="color:var(--accent)">+ Add Account</b> to get started.</div></div>';
+    return;
+  }
+
+  const firmNames = { lucid: 'Lucid Trading', tradeify: 'Tradeify' };
+
+  container.innerHTML = challenges.map(function(c) {
+    // Auto-calculate P&L from linked account with start date filter
+    var displayPnl = c.currentPnl || 0;
+    var acctTradesForCalc = [];
+    if (c.linkedAcct) {
+      acctTradesForCalc = state.trades.filter(function(t) {
+        if ((t.acct || 'default') !== c.linkedAcct) return false;
+        if (c.startDate) {
+          var td = t.time instanceof Date ? t.time : new Date(t.time);
+          return td >= new Date(c.startDate + 'T00:00:00');
+        }
+        return true;
+      });
+      displayPnl = acctTradesForCalc.reduce(function(s,t) { return s + (t.net||0); }, 0);
+    }
+    // Deduct payouts from display P&L for funded accounts
+    var totalPayouts = (c.payouts || []).reduce(function(s,p) { return s + p.amount; }, 0);
+    var netAfterPayouts = displayPnl - totalPayouts;
+    const progressPnl = c.phase === 'funded' ? netAfterPayouts : displayPnl;
+    const progress = c.target > 0 ? Math.min(100, Math.max(0, progressPnl / c.target * 100)) : 0;
+    const mllUsed  = Math.max(0, -(c.phase === 'funded' ? netAfterPayouts : displayPnl));
+    const mllPct   = Math.min(100, mllUsed / c.mll * 100);
+    const isInDanger = mllPct >= 80;
+    const isPassed   = c.target > 0 && c.phase === 'eval' && displayPnl >= c.target;
+    const label      = c.nickname || (firmNames[c.firm] + ' ' + c.typeLabel + ' $' + c.size.toLocaleString());
+
+    const statusColor = isPassed ? 'var(--green)' : isInDanger ? 'var(--red)' : (c.phase === 'funded' ? 'var(--blue)' : 'var(--accent)');
+    const statusText  = isPassed ? '🎉 TARGET HIT' : isInDanger ? 'AT RISK' : c.phase === 'eval' ? 'EVALUATION' : 'FUNDED';
+
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:14px;position:relative;overflow:hidden;">' +
+      '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:' + statusColor + ';"></div>' +
+
+      // Header
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;">' +
+        '<div>' +
+          '<div style="font-size:16px;font-weight:700;margin-bottom:4px;">' + label + '</div>' +
+          '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;">' + firmNames[c.firm].toUpperCase() + ' · ' + c.typeLabel.toUpperCase() + ' · $' + c.size.toLocaleString() + (c.startDate ? ' · from ' + new Date(c.startDate+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '') + (c.linkedAcct ? ' · ' + c.linkedAcct : '') + '</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+          '<span style="font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:100px;background:rgba(0,0,0,0.2);border:1px solid ' + statusColor + ';color:' + statusColor + ';">' + statusText + '</span>' +
+          (isPassed ? '<button onclick="markAsFunded(' + c.id + ')" style="background:var(--green);color:#080c12;border:none;font-family:var(--mono);font-size:10px;font-weight:700;padding:4px 12px;border-radius:100px;cursor:pointer;letter-spacing:1px;">→ MARK FUNDED</button>' : '') +
+          '<button onclick="deleteAccount(' + c.id + ')" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 6px;">✕</button>' +
+        '</div>' +
+      '</div>' +
+
+      // Stats grid
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">' +
+        '<div style="background:var(--surface2);border-radius:8px;padding:12px;">' +
+          '<div style="font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">CURRENT P&L' + (c.linkedAcct ? ' <span style=\"color:var(--accent)\">● LIVE</span>' : '') + '</div>' +
+          '<div style="font-family:Bebas Neue,sans-serif;font-size:22px;color:' + (displayPnl >= 0 ? 'var(--green)' : 'var(--red)') + ';">' + (displayPnl >= 0 ? '+' : '') + '$' + Math.abs(displayPnl).toFixed(2) + '</div>' +
+        '</div>' +
+        (c.target > 0 ? '<div style="background:var(--surface2);border-radius:8px;padding:12px;">' +
+          '<div style="font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">PROFIT TARGET</div>' +
+          '<div style="font-family:Bebas Neue,sans-serif;font-size:22px;">$' + c.target.toLocaleString() + '</div>' +
+        '</div>' : '') +
+        '<div style="background:var(--surface2);border-radius:8px;padding:12px;">' +
+          '<div style="font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">MAX DRAWDOWN</div>' +
+          '<div style="font-family:Bebas Neue,sans-serif;font-size:22px;color:var(--red);">$' + c.mll.toLocaleString() + '</div>' +
+        '</div>' +
+        (c.dll ? '<div style="background:var(--surface2);border-radius:8px;padding:12px;">' +
+          '<div style="font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">DAILY LOSS LIMIT</div>' +
+          '<div style="font-family:Bebas Neue,sans-serif;font-size:22px;">$' + c.dll.toLocaleString() + '</div>' +
+        '</div>' : '') +
+      '</div>' +
+
+      // Progress bars
+      (c.target > 0 ? '<div style="margin-bottom:10px;">' +
+        '<div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:4px;"><span>PROFIT PROGRESS</span><span>' + progress.toFixed(1) + '%</span></div>' +
+        '<div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden;">' +
+          '<div style="height:100%;width:' + progress + '%;background:var(--green);border-radius:4px;transition:width 0.5s;"></div>' +
+        '</div>' +
+        '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:3px;">$' + c.currentPnl.toFixed(2) + ' of $' + c.target.toLocaleString() + ' · $' + Math.max(0, c.target - c.currentPnl).toFixed(2) + ' remaining</div>' +
+      '</div>' : '') +
+
+      '<div style="margin-bottom:16px;">' +
+        '<div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:4px;"><span>DRAWDOWN USED</span><span>' + mllPct.toFixed(1) + '%</span></div>' +
+        '<div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden;">' +
+          '<div style="height:100%;width:' + mllPct + '%;background:' + (mllPct >= 80 ? 'var(--red)' : mllPct >= 50 ? '#f59e0b' : 'var(--green)') + ';border-radius:4px;transition:width 0.5s;"></div>' +
+        '</div>' +
+        '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:3px;">$' + mllUsed.toFixed(2) + ' used of $' + c.mll.toLocaleString() + ' max · $' + Math.max(0, c.mll - mllUsed).toFixed(2) + ' remaining</div>' +
+      '</div>' +
+
+      // Payout tracker (funded accounts only)
+      (c.phase === 'funded' ? (
+        '<div style="margin-bottom:16px;padding:14px;background:var(--surface2);border-radius:10px;">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
+            '<div style="font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:2px;">PAYOUTS</div>' +
+            '<button onclick="openPayoutModal(' + c.id + ')" style="background:var(--accent);color:#080c12;border:none;font-family:var(--mono);font-size:10px;font-weight:700;padding:4px 12px;border-radius:5px;cursor:pointer;letter-spacing:1px;">+ LOG PAYOUT</button>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:' + ((c.payouts||[]).length > 0 ? '12px' : '0') + ';">' +
+            '<div><div style="font-family:var(--mono);font-size:8px;color:var(--muted);">GROSS EARNED</div><div style="font-weight:700;color:var(--green);">+$' + displayPnl.toFixed(2) + '</div></div>' +
+            '<div><div style="font-family:var(--mono);font-size:8px;color:var(--muted);">PAID OUT</div><div style="font-weight:700;color:var(--muted);">-$' + totalPayouts.toFixed(2) + '</div></div>' +
+            '<div><div style="font-family:var(--mono);font-size:8px;color:var(--muted);">NET BALANCE</div><div style="font-weight:700;color:' + (netAfterPayouts >= 0 ? 'var(--green)' : 'var(--red)') + ';">' + (netAfterPayouts >= 0 ? '+' : '') + '$' + netAfterPayouts.toFixed(2) + '</div></div>' +
+          '</div>' +
+          ((c.payouts||[]).length > 0 ?
+            '<div style="border-top:1px solid var(--border);padding-top:10px;">' +
+              (c.payouts||[]).slice().reverse().map(function(p,i) {
+                return '<div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;padding:4px 0;border-bottom:1px solid var(--border);">' +
+                  '<span style="color:var(--muted);">' + new Date(p.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + '</span>' +
+                  '<span style="color:var(--green);">+$' + p.amount.toFixed(2) + '</span>' +
+                  '<span style="color:var(--muted);">bal $' + p.balance.toFixed(2) + '</span>' +
+                  '<button onclick="removePayoutFromChallenge(' + c.id + ',' + p.id + ')" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:11px;">✕</button>' +
+                '</div>';
+              }).join('') +
+            '</div>'
+          : '') +
+        '</div>'
+      ) : '') +
+
+      // Auto-sync label or manual update
+      '<div style="display:flex;align-items:center;gap:10px;">' +
+        (c.linkedAcct
+          ? '<div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:1px;">● Auto-synced from account: ' + c.linkedAcct + '</div>'
+          : '<label style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;white-space:nowrap;margin:0;">UPDATE P&L</label>' +
+            '<div style="display:flex;align-items:center;gap:6px;flex:1;">' +
+              '<span style="font-family:var(--mono);color:var(--muted);">$</span>' +
+              '<input type="number" value="' + c.currentPnl + '" step="0.01" style="flex:1;" onchange="updateChallengePnL(' + c.id + ', this.value)"/>' +
+            '</div>') +
+        (c.consistency ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);white-space:nowrap;">' + c.consistency + '% consistency</div>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+
+
+function markAsFunded(id) {
+  if (!confirm('Mark this account as Funded?\n\nThis will switch it to the funded phase and start tracking payouts.')) return;
+  var accounts = loadAccounts();
+  var acct = accounts.find(function(a) { return a.id === id; });
+  if (!acct) return;
+  acct.phase = 'funded';
+  acct.fundedDate = new Date().toISOString().split('T')[0];
+  saveAccountsData(accounts);
+  renderAccounts();
+  toast('Account marked as Funded! 🎉', 'success');
+}
+
+// == PAYOUT TRACKER ==
+var currentPayoutChallengeId = null;
+
+function openPayoutModal(challengeId) {
+  currentPayoutChallengeId = challengeId;
+  document.getElementById('payout-challenge-id').value = challengeId;
+  document.getElementById('payout-modal').style.display = 'block';
+  document.getElementById('payout-modal-overlay').style.display = 'block';
+  document.getElementById('payout-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('payout-amount').value = '';
+  document.getElementById('payout-balance-preview').textContent = '—';
+
+  // Add live preview
+  document.getElementById('payout-amount').oninput = function() {
+    var amt = parseFloat(this.value) || 0;
+    var c = loadAccounts().find(function(x) { return x.id === challengeId; });
+    if (!c) return;
+    var acctTrades = c.linkedAcct ? state.trades.filter(function(t) {
+      if ((t.acct||'default') !== c.linkedAcct) return false;
+      if (c.startDate) return (t.time instanceof Date ? t.time : new Date(t.time)) >= new Date(c.startDate+'T00:00:00');
+      return true;
+    }) : [];
+    var gross = acctTrades.reduce(function(s,t) { return s+(t.net||0); }, 0);
+    var prevPayouts = (c.payouts||[]).reduce(function(s,p) { return s+p.amount; }, 0);
+    var bal = gross - prevPayouts - amt;
+    var el = document.getElementById('payout-balance-preview');
+    el.textContent = (bal >= 0 ? '+' : '') + '$' + bal.toFixed(2);
+    el.style.color = bal >= 0 ? 'var(--green)' : 'var(--red)';
+  };
+}
+
+function closePayoutModal() {
+  document.getElementById('payout-modal').style.display = 'none';
+  document.getElementById('payout-modal-overlay').style.display = 'none';
+  currentPayoutChallengeId = null;
+}
+
+function savePayout() {
+  var cId    = currentPayoutChallengeId;
+  var date   = document.getElementById('payout-date').value;
+  var amount = parseFloat(document.getElementById('payout-amount').value);
+  if (!date || !amount || amount <= 0) { toast('Enter a date and amount', 'error'); return; }
+
+  var challenges = loadAccounts();
+  var c = challenges.find(function(x) { return x.id === cId; });
+  if (!c) return;
+
+  // Calculate balance at time of payout
+  var acctTrades = c.linkedAcct ? state.trades.filter(function(t) {
+    if ((t.acct||'default') !== c.linkedAcct) return false;
+    if (c.startDate) return (t.time instanceof Date ? t.time : new Date(t.time)) >= new Date(c.startDate+'T00:00:00');
+    return true;
+  }) : [];
+  var gross = acctTrades.reduce(function(s,t) { return s+(t.net||0); }, 0);
+  var prevPayouts = (c.payouts||[]).reduce(function(s,p) { return s+p.amount; }, 0);
+  var balance = gross - prevPayouts - amount;
+
+  if (!c.payouts) c.payouts = [];
+  c.payouts.push({ id: Date.now(), date: date, amount: amount, balance: balance });
+  saveAccountsData(challenges);
+  closePayoutModal();
+  renderAccounts();
+  toast('Payout logged — $' + amount.toFixed(2), 'success');
+}
+
+function removePayoutFromChallenge(challengeId, payoutId) {
+  if (!confirm('Remove this payout?')) return;
+  var challenges = loadAccounts();
+  var c = challenges.find(function(x) { return x.id === challengeId; });
+  if (!c || !c.payouts) return;
+  c.payouts = c.payouts.filter(function(p) { return p.id !== payoutId; });
+  saveAccountsData(challenges);
+  renderAccounts();
+}
+
+
+function getTradingDate(dt) {
+  // CME session resets at 6PM ET (18:00 local)
+  // Trades at or after 6PM belong to the NEXT trading day's session
+  var d = dt instanceof Date ? dt : new Date(dt);
+  if (d.getHours() >= 18) {
+    var next = new Date(d);
+    next.setDate(next.getDate() + 1);
+    // Skip Saturday (6) and Sunday (0) forward to Monday
+    while (next.getDay() === 0 || next.getDay() === 6) {
+      next.setDate(next.getDate() + 1);
+    }
+    next.setHours(0, 0, 0, 0);
+    return next;
+  }
+  var result = new Date(d);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+function getTradingDateStr(dt) {
+  return getTradingDate(dt).toDateString();
+}
+
 // == INIT ==
 (async function init() {
   // Restore max loss
@@ -5889,6 +6521,7 @@ function updateSidebarGoals() {
   const { data: { session } } = await sb.auth.getSession();
 
   initTheme();
+  loadDailyNotes();
   setMobileNav('dashboard');
   if (session) {
     // Already logged in — skip auth screen
@@ -5936,6 +6569,9 @@ function updateSidebarGoals() {
 <div id="mobile-more-menu" style="display:none;position:fixed;bottom:70px;right:0;left:0;background:var(--surface);border:1px solid var(--border);border-radius:16px 16px 0 0;z-index:350;padding:8px 0 12px;">
   <div style="width:40px;height:4px;background:var(--border);border-radius:2px;margin:8px auto 12px;"></div>
 
+  <button onclick="switchView('accounts');setMobileNav('accounts');closeMobileMore()" style="display:flex;align-items:center;gap:14px;width:100%;padding:14px 22px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;border-bottom:1px solid var(--border);">
+    <span style="font-size:20px;">🏆</span> Accounts
+  </button>
   <button onclick="switchView('goals');setMobileNav('goals');closeMobileMore()" style="display:flex;align-items:center;gap:14px;width:100%;padding:14px 22px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;border-bottom:1px solid var(--border);">
     <span style="font-size:20px;">🎯</span> Goals
   </button>
@@ -6162,6 +6798,16 @@ function updateSidebarGoals() {
     </div>
   </div>
 
+  <!-- Per-fill exchange fee -->
+  <div style="margin-bottom:20px;">
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:4px;">EXCHANGE / NFA FEE PER FILL</div>
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:12px;">Added to each fill on top of broker commission. Set to $0 unless your broker charges additional exchange fees not shown in the CSV.</div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);">$</span>
+      <input type="number" id="set-per-fill-fee" value="0.00" min="0" step="0.01"/>
+    </div>
+  </div>
+
   <!-- Daily max loss -->
   <div style="margin-bottom:20px;">
     <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:12px;">DAILY MAX LOSS</div>
@@ -6274,5 +6920,106 @@ function updateSidebarGoals() {
   </div>
 </div>
 
+
+
+<!-- Challenge Modal -->
+<div id="account-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:450;" onclick="closeAccountModal()"></div>
+<div id="account-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;z-index:460;">
+  <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--blue));border-radius:16px 16px 0 0;"></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;">ADD ACCOUNT</div>
+    <div onclick="closeAccountModal()" style="cursor:pointer;color:var(--muted);font-size:20px;padding:4px 8px;">✕</div>
+  </div>
+
+  <div class="input-row">
+    <div>
+      <label>Prop Firm</label>
+      <select id="ch-firm" onchange="updateChallengeFields('firm')">
+        <option value="lucid">Lucid Trading</option>
+        <option value="tradeify">Tradeify</option>
+      </select>
+    </div>
+    <div>
+      <label>Account Type</label>
+      <select id="ch-type" onchange="updateChallengeFields('type')">
+        <option value="flex">LucidFlex</option>
+        <option value="pro">LucidPro</option>
+        <option value="direct">LucidDirect</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="input-row">
+    <div>
+      <label>Account Size</label>
+      <select id="ch-size" onchange="updateChallengeFields('size')">
+        <option value="25000">$25,000</option>
+        <option value="50000">$50,000</option>
+        <option value="100000">$100,000</option>
+        <option value="150000">$150,000</option>
+      </select>
+    </div>
+    <div>
+      <label>Phase</label>
+      <select id="ch-phase">
+        <option value="eval">Evaluation</option>
+        <option value="funded">Funded</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Auto-filled rules preview -->
+  <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px;" id="ch-rules-preview">
+    <div style="font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:2px;margin-bottom:12px;">ACCOUNT RULES (AUTO-FILLED)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="ch-rules-grid"></div>
+  </div>
+
+  <!-- Linked Account -->
+  <div id="ch-acct-select-wrap">
+    <label>Link to Account <span style="color:var(--muted);font-size:11px;">— auto-calculates P&amp;L from your imported trades</span></label>
+    <select id="ch-linked-acct" onchange="updateChallengePreview()">
+      <option value="">— Select account —</option>
+    </select>
+  </div>
+
+  <!-- Start Date -->
+  <div>
+    <label>Challenge Start Date <span style="color:var(--muted);font-size:11px;">— only trades on or after this date count</span></label>
+    <input type="date" id="ch-start-date"/>
+  </div>
+
+  <label>Account Nickname (optional)</label>
+  <input type="text" id="ch-nickname" placeholder="e.g. Lucid Flex 50K"/>
+
+  <!-- Live P&L preview from linked account -->
+  <div id="ch-pnl-preview" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:4px;">
+    <div style="font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:2px;margin-bottom:8px;">LIVE P&L FROM ACCOUNT</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;" id="ch-pnl-preview-val">$0.00</div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;" id="ch-pnl-preview-sub"></div>
+  </div>
+
+  <button class="btn btn-primary" onclick="saveAccount()" style="width:100%;margin-top:8px;">SAVE ACCOUNT</button>
+</div>
+
+
+<!-- Payout Modal -->
+<div id="payout-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:450;" onclick="closePayoutModal()"></div>
+<div id="payout-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:380px;max-width:95vw;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;z-index:460;">
+  <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--blue));border-radius:16px 16px 0 0;"></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;">LOG PAYOUT</div>
+    <div onclick="closePayoutModal()" style="cursor:pointer;color:var(--muted);font-size:20px;padding:4px 8px;">✕</div>
+  </div>
+  <input type="hidden" id="payout-challenge-id"/>
+  <label>Date</label>
+  <input type="date" id="payout-date"/>
+  <label>Amount Paid Out ($)</label>
+  <input type="number" id="payout-amount" placeholder="1500.00" step="0.01" min="0"/>
+  <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px;">
+    <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">BALANCE AFTER PAYOUT</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;" id="payout-balance-preview">—</div>
+  </div>
+  <button class="btn btn-primary" onclick="savePayout()" style="width:100%;">SAVE PAYOUT</button>
+</div>
 
 </body>
