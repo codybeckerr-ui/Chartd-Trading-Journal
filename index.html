@@ -5223,6 +5223,23 @@ function initTheme() {
 }
 
 // == GOALS ==
+// Goals — Supabase backed with localStorage cache
+async function loadGoalsFromSupabase() {
+  if (!currentUser) return;
+  try {
+    const { data, error } = await sb.from('goals').select('*').eq('user_id', currentUser.id);
+    if (error) throw error;
+    if (data) {
+      const goals = data.map(function(r) {
+        return { id: r.id, supabaseId: r.id, type: r.type, target: r.target, notes: r.notes, created: r.created_at };
+      });
+      localStorage.setItem('chartd_goals', JSON.stringify(goals));
+      return goals;
+    }
+  } catch(e) { addLog('Goals load error: ' + e.message, 'err'); }
+  return [];
+}
+
 function loadGoals() {
   const saved = localStorage.getItem('chartd_goals');
   return saved ? JSON.parse(saved) : [];
@@ -5230,6 +5247,23 @@ function loadGoals() {
 
 function saveGoals(goals) {
   localStorage.setItem('chartd_goals', JSON.stringify(goals));
+}
+
+async function saveGoalToSupabase(goal) {
+  if (!currentUser) return;
+  try {
+    if (goal.supabaseId) {
+      await sb.from('goals').update({ type: goal.type, target: goal.target, notes: goal.notes }).eq('id', goal.supabaseId);
+    } else {
+      const { data } = await sb.from('goals').insert({ user_id: currentUser.id, type: goal.type, target: goal.target, notes: goal.notes || '' }).select();
+      if (data && data[0]) goal.supabaseId = data[0].id;
+    }
+  } catch(e) { addLog('Goal save error: ' + e.message, 'err'); }
+}
+
+async function deleteGoalFromSupabase(id) {
+  if (!currentUser) return;
+  try { await sb.from('goals').delete().eq('id', id); } catch(e) {}
 }
 
 function openGoalModal() {
@@ -5285,8 +5319,10 @@ function saveGoal() {
 
 function deleteGoal(id) {
   if (!confirm('Delete this goal?')) return;
-  const goals = loadGoals().filter(function(g) { return g.id !== id; });
-  saveGoals(goals);
+  const goals = loadGoals();
+  const goal = goals.find(function(g) { return g.id === id; });
+  if (goal && goal.supabaseId) deleteGoalFromSupabase(goal.supabaseId);
+  saveGoals(goals.filter(function(g) { return g.id !== id; }));
   renderGoals();
 }
 
@@ -6178,12 +6214,63 @@ function updateChallengePreview() {
   }
 }
 
+// Challenge Accounts — Supabase backed with localStorage cache
+async function loadAccountsFromSupabase() {
+  if (!currentUser) return;
+  try {
+    const { data, error } = await sb.from('challenge_accounts').select('*').eq('user_id', currentUser.id);
+    if (error) throw error;
+    if (data) {
+      const accounts = data.map(function(r) {
+        return {
+          id: r.id, supabaseId: r.id,
+          firm: r.firm, type: r.type, size: r.size, phase: r.phase,
+          nickname: r.nickname, linkedAcct: r.linked_acct, startDate: r.start_date,
+          target: r.target, mll: r.mll, dll: r.dll, consistency: r.consistency,
+          hasDLL: r.has_dll, typeLabel: r.type_label, fundedDate: r.funded_date,
+          payouts: r.payouts || [], currentPnl: 0
+        };
+      });
+      localStorage.setItem('chartd_accounts', JSON.stringify(accounts));
+      return accounts;
+    }
+  } catch(e) { addLog('Accounts load error: ' + e.message, 'err'); }
+  return [];
+}
+
 function loadAccounts() {
   const s = localStorage.getItem('chartd_accounts');
   return s ? JSON.parse(s) : [];
 }
+
 function saveAccountsData(data) {
   localStorage.setItem('chartd_accounts', JSON.stringify(data));
+}
+
+async function saveAccountToSupabase(acct) {
+  if (!currentUser) return;
+  const payload = {
+    user_id: currentUser.id,
+    firm: acct.firm, type: acct.type, size: acct.size, phase: acct.phase,
+    nickname: acct.nickname || '', linked_acct: acct.linkedAcct || null,
+    start_date: acct.startDate || null, target: acct.target, mll: acct.mll,
+    dll: acct.dll || 0, consistency: acct.consistency ? String(acct.consistency) : null,
+    has_dll: acct.hasDLL || false, type_label: acct.typeLabel,
+    funded_date: acct.fundedDate || null, payouts: acct.payouts || []
+  };
+  try {
+    if (acct.supabaseId) {
+      await sb.from('challenge_accounts').update(payload).eq('id', acct.supabaseId);
+    } else {
+      const { data } = await sb.from('challenge_accounts').insert(payload).select();
+      if (data && data[0]) acct.supabaseId = data[0].id;
+    }
+  } catch(e) { addLog('Account save error: ' + e.message, 'err'); }
+}
+
+async function deleteAccountFromSupabase(supabaseId) {
+  if (!currentUser || !supabaseId) return;
+  try { await sb.from('challenge_accounts').delete().eq('id', supabaseId); } catch(e) {}
 }
 
 function openAccountModal() {
@@ -6246,7 +6333,10 @@ function saveAccount() {
 
 function deleteAccount(id) {
   if (!confirm('Remove this account?')) return;
-  saveAccountsData(loadAccounts().filter(function(c) { return c.id !== id; }));
+  const accounts = loadAccounts();
+  const acct = accounts.find(function(a) { return a.id === id; });
+  if (acct && acct.supabaseId) deleteAccountFromSupabase(acct.supabaseId);
+  saveAccountsData(accounts.filter(function(a) { return a.id !== id; }));
   renderAccounts();
 }
 
@@ -6402,6 +6492,7 @@ function markAsFunded(id) {
   acct.phase = 'funded';
   acct.fundedDate = new Date().toISOString().split('T')[0];
   saveAccountsData(accounts);
+  saveAccountToSupabase(acct);
   renderAccounts();
   toast('Account marked as Funded! 🎉', 'success');
 }
@@ -6478,6 +6569,7 @@ function removePayoutFromChallenge(challengeId, payoutId) {
   if (!c || !c.payouts) return;
   c.payouts = c.payouts.filter(function(p) { return p.id !== payoutId; });
   saveAccountsData(challenges);
+  saveAccountToSupabase(c);
   renderAccounts();
 }
 
