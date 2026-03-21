@@ -4792,6 +4792,14 @@ function updateSidebarStats() {
   const losses   = trades.filter(t => t.net < 0).length;
   const wr       = trades.length > 0 ? (wins/trades.length*100).toFixed(0) + '%' : '—';
 
+  // Update mobile more menu stats too
+  const mobPnl = document.getElementById('mob-sb-pnl');
+  const mobWr  = document.getElementById('mob-sb-wr');
+  const mobTr  = document.getElementById('mob-sb-trades');
+  if (mobPnl) { mobPnl.textContent = (totalNet >= 0 ? '+' : '') + '$' + Math.abs(totalNet).toFixed(2); mobPnl.style.color = totalNet > 0 ? 'var(--green)' : totalNet < 0 ? 'var(--red)' : ''; }
+  if (mobWr)  mobWr.textContent = wr;
+  if (mobTr)  mobTr.textContent = trades.length;
+
   const pnlEl = document.getElementById('sb-pnl');
   if (pnlEl) {
     pnlEl.textContent = (totalNet >= 0 ? '+' : '') + '$' + Math.abs(totalNet).toFixed(2);
@@ -5901,9 +5909,9 @@ function updateSidebarGoals() {
 </script>
 <!-- Mobile Bottom Nav -->
 <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
-  <button class="mobile-nav-btn" id="mnav-menu" onclick="toggleSidebar()">
-    <span class="mobile-nav-icon">☰</span>
-    <span>Menu</span>
+  <button class="mobile-nav-btn" id="mnav-dashboard" onclick="switchView('dashboard');setMobileNav('dashboard')">
+    <span class="mobile-nav-icon">📊</span>
+    <span>Dashboard</span>
   </button>
   <button class="mobile-nav-btn" id="mnav-futures" onclick="switchView('futures');setMobileNav('futures')">
     <span class="mobile-nav-icon">⚡</span>
@@ -5923,25 +5931,52 @@ function updateSidebarGoals() {
   </button>
 </nav>
 
-<!-- Mobile "More" menu -->
-<div id="mobile-more-menu" style="display:none;position:fixed;bottom:70px;right:0;left:0;background:var(--surface);border-top:1px solid var(--border);z-index:350;padding:8px 0;">
-  <button onclick="switchView('dashboard');setMobileNav('dashboard');closeMobileMore()" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 20px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;">
-    <span style="font-size:20px;">📊</span> Dashboard
-  </button>
-  <button onclick="switchView('goals');setMobileNav('goals');closeMobileMore()" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 20px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;">
+<!-- Mobile "More" menu — slides up from bottom -->
+<div id="mobile-more-backdrop" style="display:none;position:fixed;inset:0;z-index:340;background:rgba(0,0,0,0.5);" onclick="closeMobileMore()"></div>
+<div id="mobile-more-menu" style="display:none;position:fixed;bottom:70px;right:0;left:0;background:var(--surface);border:1px solid var(--border);border-radius:16px 16px 0 0;z-index:350;padding:8px 0 12px;">
+  <div style="width:40px;height:4px;background:var(--border);border-radius:2px;margin:8px auto 12px;"></div>
+
+  <button onclick="switchView('goals');setMobileNav('goals');closeMobileMore()" style="display:flex;align-items:center;gap:14px;width:100%;padding:14px 22px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;border-bottom:1px solid var(--border);">
     <span style="font-size:20px;">🎯</span> Goals
   </button>
-  <button onclick="openMobileImport();closeMobileMore()" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 20px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;">
+
+  <div style="padding:14px 22px;border-bottom:1px solid var(--border);">
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:10px;">TODAY'S SESSION</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:1px;">NET P&L</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;line-height:1.2;" id="mob-sb-pnl">$0</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:1px;">WIN RATE</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;line-height:1.2;color:var(--accent);" id="mob-sb-wr">—</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:1px;">TRADES</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;line-height:1.2;" id="mob-sb-trades">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:14px 22px;border-bottom:1px solid var(--border);">
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:10px;">ECONOMIC CALENDAR</div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <a href="https://www.forexfactory.com/calendar" target="_blank" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text);font-family:var(--mono);font-size:11px;">📅 Forex Factory</a>
+      <a href="https://tradingeconomics.com/calendar" target="_blank" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text);font-family:var(--mono);font-size:11px;">📊 Trading Economics</a>
+      <a href="https://www.cmegroup.com/trading/interest-rates/countdown-to-fomc.html" target="_blank" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text);font-family:var(--mono);font-size:11px;">🏛 CME FedWatch</a>
+    </div>
+  </div>
+
+  <button onclick="openMobileImport();closeMobileMore()" style="display:flex;align-items:center;gap:14px;width:100%;padding:14px 22px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;border-bottom:1px solid var(--border);">
     <span style="font-size:20px;">📂</span> Import CSV
   </button>
-  <button onclick="openShareModal();closeMobileMore()" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 20px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;">
+  <button onclick="openShareModal();closeMobileMore()" style="display:flex;align-items:center;gap:14px;width:100%;padding:14px 22px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;border-bottom:1px solid var(--border);">
     <span style="font-size:20px;">↗</span> Share
   </button>
-  <button onclick="showSettings();closeMobileMore()" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 20px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;">
+  <button onclick="showSettings();closeMobileMore()" style="display:flex;align-items:center;gap:14px;width:100%;padding:14px 22px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;">
     <span style="font-size:20px;">⚙</span> Settings
   </button>
 </div>
-<div id="mobile-more-backdrop" style="display:none;position:fixed;inset:0;z-index:340;" onclick="closeMobileMore()"></div>
 
 
 <!-- ── OPTIONS ADD TRADE MODAL ────────────────────────────────── -->
