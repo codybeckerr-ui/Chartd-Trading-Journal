@@ -2224,7 +2224,7 @@ function doGet(e) {<br/>
             </select>
           </div>
 
-          <button class="dash-filter-clear" onclick="clearDashFilters()">✕ Clear</button>
+          <button class="dash-filter-clear" onclick="clearDashFilters()">✕ Reset Filters</button>
         </div>
         </div>
       </div>
@@ -2830,7 +2830,8 @@ function saveNotes() {
 }
 
 async function clearTrades() {
-  if (!confirm('Delete all futures trades permanently?\n\nThis cannot be undone.')) return;
+  if (!confirm('⚠️ DELETE ALL FUTURES TRADES?\n\nThis will permanently erase ALL your futures trade data from the cloud. You will need to re-upload your CSVs to get it back.\n\nClick OK to continue.')) return;
+  if (!confirm('Final confirmation — are you absolutely sure? This cannot be undone.')) return;
 
   if (currentUser) {
     try {
