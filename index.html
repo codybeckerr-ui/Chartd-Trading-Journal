@@ -2277,7 +2277,7 @@ function doGet(e) {<br/>
             </tr>
           </thead>
           <tbody id="trade-tbody">
-            <tr><td colspan="13">
+            <tr><td colspan="11">
               <div class="empty-state">
                 <div class="empty-icon">📋</div>
                 <div class="empty-text">No futures trades yet.<br/>Import a Tradovate CSV or add a trade manually.</div>
@@ -2769,7 +2769,8 @@ async function clearTrades() {
 
 // == TABLE SORT ==
 let sortCol = 'date';
-let sortDir = 'desc'; // newest first by default
+let sortDir = 'desc';
+let tradeRowsShown = 15; // newest first by default
 
 function setSortCol(col) {
   if (sortCol === col) {
@@ -2861,7 +2862,7 @@ function renderTable() {
       '<td class="' + grossClass + '">$' + t.gross.toFixed(2) + '</td>' +
       '<td style="color:var(--muted)">-$' + t.comm.toFixed(2) + '</td>' +
       '<td class="' + netClass + '" style="font-size:14px;">$' + t.net.toFixed(2) + '</td>' +
-      '<td class="' + rClass + '">' + rStr + '</td>' +
+      
       '<td><button onclick="openTradeDetail(\'' + t.id + '\')" style="background:rgba(0,229,160,0.1);border:1px solid rgba(0,229,160,0.2);color:var(--accent);font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:5px;cursor:pointer;letter-spacing:1px;">NOTES</button></td>' +
       '</tr>'
     );
@@ -2893,7 +2894,29 @@ function renderTable() {
     }
   });
 
-  tbody.innerHTML = rows.join('');
+  // Pagination — show first N rows with expand/collapse
+  var btnStyle = 'background:transparent;border:1px solid #1e2840;color:#8b9ab8;font-family:DM Mono,monospace;font-size:11px;padding:8px 20px;border-radius:7px;cursor:pointer;letter-spacing:1px;';
+  if (rows.length > tradeRowsShown) {
+    var visible = rows.slice(0, tradeRowsShown).join('');
+    var remaining = rows.length - tradeRowsShown;
+    visible += '<tr><td colspan="11" style="text-align:center;padding:14px;"><button onclick="showMoreTrades()" style="' + btnStyle + '">▼ Show ' + remaining + ' more trades</button></td></tr>';
+    tbody.innerHTML = visible;
+  } else {
+    if (tradeRowsShown > 15) {
+      rows.push('<tr><td colspan="11" style="text-align:center;padding:14px;"><button onclick="showLessTrades()" style="' + btnStyle + '">▲ Show less</button></td></tr>');
+    }
+    tbody.innerHTML = rows.join('');
+  }
+}
+
+function showMoreTrades() {
+  tradeRowsShown += 15;
+  renderTable();
+}
+
+function showLessTrades() {
+  tradeRowsShown = 15;
+  renderTable();
 }
 
 function updateStats() {
@@ -3175,6 +3198,7 @@ function parseCSVFile(file) {
     }
     preview.style.display = 'block';
     preview.innerHTML = `<b>✓ Imported ${result.trades} trades</b> from ${file.name}<br/>Skipped ${result.skipped} rows (open/incomplete)`;
+    tradeRowsShown = 15;
     importedFiles.add(file.name);
     localStorage.removeItem('chartd_cleared');
     tradesCleared = false;
@@ -3297,6 +3321,12 @@ function parseTradovateCSV(text, filename) {
   const iComm  = ci('commission') >= 0 ? ci('commission') : -1;
   const fileAcctFills = filename ? filename.replace(/\.csv$/i,'').trim() : 'default';
 
+  addLog('Headers[0-5]: ' + headers.slice(0,5).join(' | '), 'info');
+  addLog('iAcct=' + iAcct + ' filename=' + fileAcctFills, 'info');
+  if (iAcct >= 0 && lines[1]) {
+    var firstRow = splitCSVLine(lines[1]);
+    addLog('First row acct value: ' + (firstRow[iAcct] || 'EMPTY'), 'info');
+  }
   addLog('Cols → time:' + iTime + ' b/s:' + iBS + ' qty:' + iQty + ' price:' + iPrice + ' sym:' + iSym + ' acct:' + iAcct, 'info');
 
   if ([iBS, iQty, iPrice, iSym].some(i => i < 0)) {
@@ -3343,13 +3373,18 @@ function parseTradovateCSV(text, filename) {
   addLog(`${fills.length} fills parsed, ${skipped} rows skipped`, 'info');
 
   const bySymbol = {};
-  fills.forEach(f => { if (!bySymbol[f.sym]) bySymbol[f.sym] = []; bySymbol[f.sym].push(f); });
+  fills.forEach(f => {
+    var key = f.sym + '|' + (f.acct || 'default');
+    if (!bySymbol[key]) bySymbol[key] = [];
+    bySymbol[key].push(f);
+  });
 
   let positionCount = 0;
 
-  Object.entries(bySymbol).forEach(([sym, symFills]) => {
+  Object.entries(bySymbol).forEach(([symKey, symFills]) => {
+    var sym = symKey.split('|')[0];
     symFills.sort((a, b) => a.time - b.time);
-    let openFills = []; // stack of { bs, qty, price, remaining, time }
+    let openFills = []; // stack of { bs, qty, price, remaining, time, acct }
 
     symFills.forEach(fill => {
       if (openFills.length === 0) {
@@ -4742,6 +4777,7 @@ function buildAcctTabs() {
     if (accts.indexOf(a) < 0) accts.push(a);
   });
   accts.sort();
+  addLog('Accounts found: ' + accts.join(', ') + ' (' + accts.length + ')', 'info');
   if (accts.length <= 1) {
     container.style.display = 'none';
     container.innerHTML = '';
