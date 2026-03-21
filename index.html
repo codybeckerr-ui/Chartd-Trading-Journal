@@ -1745,6 +1745,44 @@
   @media (max-width: 768px) {
     #stock-modal { top:auto; bottom:0; left:0; right:0; transform:none; width:100%; border-radius:16px 16px 0 0; max-height:85vh; }
   }
+
+  /* Dashboard filters — collapsible on mobile */
+  .dash-filters-toggle {
+    display: none;
+  }
+  @media (max-width: 768px) {
+    .dash-filters-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+    .dash-filters-toggle.active { border-color: var(--accent); color: var(--accent); }
+    .dash-filters-body {
+      display: none;
+    }
+    .dash-filters-body.open {
+      display: block;
+    }
+    .dash-filters {
+      padding: 0;
+      background: transparent;
+      border: none;
+      margin-bottom: 10px;
+    }
+    .dash-filter-group { min-width: 100% !important; }
+    .dash-filter-row { flex-direction: column; gap: 8px; }
+  }
 </style>
 </head>
 <body>
@@ -2098,7 +2136,12 @@ function doGet(e) {<br/>
     <!-- ── DASHBOARD VIEW ──────────────────────────────────────── -->
     <div class="dashboard" id="view-dashboard">
       <!-- Dashboard Filters -->
+      <button class="dash-filters-toggle" id="dash-filters-toggle" onclick="toggleDashFilters()">
+        <span>⚙ Filters</span>
+        <span id="dash-filters-toggle-arrow">▼</span>
+      </button>
       <div class="dash-filters" id="dash-filters">
+        <div class="dash-filters-body" id="dash-filters-body">
         <div class="dash-filter-row">
 
           <!-- Time range -->
@@ -2182,6 +2225,7 @@ function doGet(e) {<br/>
           </div>
 
           <button class="dash-filter-clear" onclick="clearDashFilters()">✕ Clear</button>
+        </div>
         </div>
       </div>
 
@@ -4900,6 +4944,17 @@ const dashFilters = {
   to:      null
 };
 
+
+function toggleDashFilters() {
+  var body = document.getElementById('dash-filters-body');
+  var toggle = document.getElementById('dash-filters-toggle');
+  var arrow = document.getElementById('dash-filters-toggle-arrow');
+  if (!body) return;
+  var isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  if (toggle) toggle.classList.toggle('active', !isOpen);
+  if (arrow) arrow.textContent = isOpen ? '▼' : '▲';
+}
 function applyDashFilters() {
   const range   = document.getElementById('df-range').value;
   const source  = document.getElementById('df-source').value;
@@ -5843,9 +5898,9 @@ function updateSidebarGoals() {
 </script>
 <!-- Mobile Bottom Nav -->
 <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
-  <button class="mobile-nav-btn" id="mnav-dashboard" onclick="switchView('dashboard');setMobileNav('dashboard')">
-    <span class="mobile-nav-icon">📊</span>
-    <span>Dashboard</span>
+  <button class="mobile-nav-btn" id="mnav-menu" onclick="toggleSidebar()">
+    <span class="mobile-nav-icon">☰</span>
+    <span>Menu</span>
   </button>
   <button class="mobile-nav-btn" id="mnav-futures" onclick="switchView('futures');setMobileNav('futures')">
     <span class="mobile-nav-icon">⚡</span>
@@ -5853,22 +5908,22 @@ function updateSidebarGoals() {
   </button>
   <button class="mobile-nav-btn push-btn" id="mnav-add" onclick="openMobileAddTrade()">
     <span class="mobile-nav-icon">+</span>
-    <span>Add</span>
+    <span>Add Trade</span>
+  </button>
+  <button class="mobile-nav-btn" id="mnav-options" onclick="switchView('options');setMobileNav('options')">
+    <span class="mobile-nav-icon">📈</span>
+    <span>Options</span>
   </button>
   <button class="mobile-nav-btn" id="mnav-more" onclick="toggleMobileMore()">
     <span class="mobile-nav-icon">⋯</span>
     <span>More</span>
   </button>
-  <button class="mobile-nav-btn" id="mnav-settings" onclick="showSettings()">
-    <span class="mobile-nav-icon">⚙</span>
-    <span>Settings</span>
-  </button>
 </nav>
 
 <!-- Mobile "More" menu -->
 <div id="mobile-more-menu" style="display:none;position:fixed;bottom:70px;right:0;left:0;background:var(--surface);border-top:1px solid var(--border);z-index:350;padding:8px 0;">
-  <button onclick="switchView('options');setMobileNav('options');closeMobileMore()" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 20px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;">
-    <span style="font-size:20px;">📈</span> Options
+  <button onclick="switchView('dashboard');setMobileNav('dashboard');closeMobileMore()" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 20px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;">
+    <span style="font-size:20px;">📊</span> Dashboard
   </button>
   <button onclick="switchView('goals');setMobileNav('goals');closeMobileMore()" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 20px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;">
     <span style="font-size:20px;">🎯</span> Goals
@@ -5878,6 +5933,9 @@ function updateSidebarGoals() {
   </button>
   <button onclick="openShareModal();closeMobileMore()" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 20px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;">
     <span style="font-size:20px;">↗</span> Share
+  </button>
+  <button onclick="showSettings();closeMobileMore()" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 20px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;">
+    <span style="font-size:20px;">⚙</span> Settings
   </button>
 </div>
 <div id="mobile-more-backdrop" style="display:none;position:fixed;inset:0;z-index:340;" onclick="closeMobileMore()"></div>
