@@ -6378,8 +6378,19 @@ function renderAccounts() {
     var netAfterPayouts = displayPnl - totalPayouts;
     const progressPnl = c.phase === 'funded' ? netAfterPayouts : displayPnl;
     const progress = c.target > 0 ? Math.min(100, Math.max(0, progressPnl / c.target * 100)) : 0;
-    const mllUsed  = Math.max(0, -(c.phase === 'funded' ? netAfterPayouts : displayPnl));
-    const mllPct   = Math.min(100, mllUsed / c.mll * 100);
+    // EOD trailing drawdown calculation
+    var wm = { watermark: 50000, drawdownUsed: 0 };
+    if (c.linkedAcct) {
+      wm = calcEODWatermark(c.linkedAcct, c.startDate, 50000);
+    } else {
+      // No linked account — fall back to simple P&L based calc
+      wm.drawdownUsed = Math.max(0, -(c.phase === 'funded' ? netAfterPayouts : displayPnl));
+    }
+    const mllUsed    = wm.drawdownUsed;
+    const mllPct     = Math.min(100, mllUsed / c.mll * 100);
+    const watermark  = wm.watermark;
+    const floor      = watermark - c.mll;
+    const buffer     = (50000 + (c.phase === 'funded' ? netAfterPayouts : displayPnl)) - floor;
     const isInDanger = mllPct >= 80;
     const isPassed   = c.target > 0 && c.phase === 'eval' && displayPnl >= c.target;
     const label      = c.nickname || (firmNames[c.firm] + ' ' + c.typeLabel + ' $' + c.size.toLocaleString());
@@ -6435,9 +6446,13 @@ function renderAccounts() {
       '<div style="margin-bottom:16px;">' +
         '<div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:4px;"><span>DRAWDOWN USED</span><span>' + mllPct.toFixed(1) + '%</span></div>' +
         '<div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden;">' +
-          '<div style="height:100%;width:' + mllPct + '%;background:' + (mllPct >= 80 ? 'var(--red)' : mllPct >= 50 ? '#f59e0b' : 'var(--green)') + ';border-radius:4px;transition:width 0.5s;"></div>' +
+          '<div style="height:100%;width:' + mllPct + '%;background:var(--red);border-radius:4px;transition:width 0.5s;"></div>' +
         '</div>' +
-        '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:3px;">$' + mllUsed.toFixed(2) + ' used of $' + c.mll.toLocaleString() + ' max · $' + Math.max(0, c.mll - mllUsed).toFixed(2) + ' remaining</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px;">' +
+          '<div style="font-family:var(--mono);font-size:9px;"><span style="color:var(--muted);">WATERMARK</span><br><span style="color:var(--text);font-weight:700;">$' + watermark.toFixed(0) + '</span></div>' +
+          '<div style="font-family:var(--mono);font-size:9px;"><span style="color:var(--muted);">FLOOR</span><br><span style="color:var(--red);font-weight:700;">$' + floor.toFixed(0) + '</span></div>' +
+          '<div style="font-family:var(--mono);font-size:9px;"><span style="color:var(--muted);">BUFFER</span><br><span style="color:' + (buffer > c.mll * 0.2 ? 'var(--green)' : 'var(--red)') + ';font-weight:700;">$' + Math.max(0, buffer).toFixed(0) + '</span></div>' +
+        '</div>' +
       '</div>' +
 
       // Payout tracker (funded accounts only)
@@ -6495,6 +6510,47 @@ function markAsFunded(id) {
   saveAccountToSupabase(acct);
   renderAccounts();
   toast('Account marked as Funded! 🎉', 'success');
+}
+
+
+function calcEODWatermark(linkedAcct, startDate, startingBalance) {
+  // Get all trades for this account from start date
+  var acctTrades = state.trades.filter(function(t) {
+    if ((t.acct || 'default') !== linkedAcct) return false;
+    if (startDate) {
+      var td = t.time instanceof Date ? t.time : new Date(t.time);
+      return td >= new Date(startDate + 'T00:00:00');
+    }
+    return true;
+  });
+
+  if (!acctTrades.length) return { watermark: startingBalance, floor: startingBalance, drawdownUsed: 0, buffer: 0 };
+
+  // Group by trading session date (EOD)
+  var dayPnL = {};
+  acctTrades.forEach(function(t) {
+    var d = getTradingDateStr(t.time instanceof Date ? t.time : new Date(t.time));
+    dayPnL[d] = (dayPnL[d] || 0) + (t.net || 0);
+  });
+
+  // Walk through days in order, tracking running balance and watermark
+  var days = Object.keys(dayPnL).sort(function(a, b) { return new Date(a) - new Date(b); });
+  var balance    = startingBalance;
+  var watermark  = startingBalance;
+
+  days.forEach(function(day) {
+    balance += dayPnL[day];
+    // Watermark only moves up (EOD trailing)
+    if (balance > watermark) watermark = balance;
+  });
+
+  return {
+    watermark:     watermark,
+    floor:         watermark, // returned so caller can subtract MLL
+    balance:       balance,
+    drawdownUsed:  Math.max(0, watermark - balance),
+    buffer:        balance - (watermark - 0) // caller subtracts MLL
+  };
 }
 
 // == PAYOUT TRACKER ==
