@@ -1077,6 +1077,48 @@
 @media (max-width: 768px) {
   .mobile-bottom-nav { display: flex !important; }
   .mobile-import-sheet { display: block !important; }
+  /* Mobile nav active state */
+  .mobile-nav-btn.active { color: var(--accent) !important; }
+
+  /* Mobile more menu items hover */
+  #mobile-more-menu button:hover { background: var(--surface2) !important; color: var(--accent) !important; }
+
+  /* Hide desktop view tabs on mobile — use bottom nav instead */
+  .view-tabs { display: none !important; }
+
+  /* Header on mobile — just logo + theme toggle */
+  .header-right { gap: 6px; }
+  .header-right .btn { display: none; }
+  #theme-btn { display: flex !important; }
+
+  /* Dashboard on mobile — single column */
+  .dash-stats { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  #dash-extra-stats { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  .dash-charts { grid-template-columns: 1fr !important; }
+  .dash-filters .dash-filter-row { flex-direction: column; }
+  .dash-filter-group { min-width: 100% !important; }
+  .breakdown-grid { grid-template-columns: 1fr !important; }
+
+  /* Futures on mobile */
+  #futures-summary > div:first-child { grid-template-columns: 1fr 1fr !important; }
+  #acct-summary-cards { grid-template-columns: 1fr 1fr !important; }
+
+  /* Table on mobile — horizontal scroll */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Share modal mobile */
+  #share-modal { top: auto; bottom: 0; left: 0; right: 0; transform: none; width: 100%; border-radius: 16px 16px 0 0; max-height: 90vh; }
+
+  /* Settings modal mobile */
+  #settings-modal { top: auto; bottom: 0; left: 0; right: 0; transform: none; width: 100%; border-radius: 16px 16px 0 0; }
+
+  /* Goals on mobile */
+  .goal-card { padding: 16px; }
+
+  /* Main content padding above bottom nav */
+  .main, .dashboard { padding-bottom: 80px !important; }
+  .sidebar { padding-bottom: 100px; }
+
   .drawer-backdrop { display: none; } /* controlled by JS */
 }
 
@@ -2199,11 +2241,26 @@ function doGet(e) {<br/>
           <span>More</span>
         </div>
       </div>
-      <div class="dash-stat" id="card-limit" style="margin-bottom:20px;">
-        <div class="dash-stat-label">Daily Loss Used</div>
-        <div class="dash-stat-value" id="stat-limit">$0</div>
-        <div class="daily-limit-bar" style="margin-top:8px;">
-          <div class="daily-limit-fill" id="limit-fill" style="width:0%;background:var(--green)"></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;" id="dash-extra-stats">
+        <div class="dash-stat">
+          <div class="dash-stat-label">Current Streak</div>
+          <div class="dash-stat-value" id="dstat-streak">—</div>
+          <div class="dash-stat-sub" id="dstat-streak-sub">no trades</div>
+        </div>
+        <div class="dash-stat">
+          <div class="dash-stat-label">Best Day</div>
+          <div class="dash-stat-value pnl-pos" id="dstat-best-day">—</div>
+          <div class="dash-stat-sub" id="dstat-best-day-sub">—</div>
+        </div>
+        <div class="dash-stat">
+          <div class="dash-stat-label">Worst Day</div>
+          <div class="dash-stat-value pnl-neg" id="dstat-worst-day">—</div>
+          <div class="dash-stat-sub" id="dstat-worst-day-sub">—</div>
+        </div>
+        <div class="dash-stat">
+          <div class="dash-stat-label">Consistency</div>
+          <div class="dash-stat-value" id="dstat-consistency">—</div>
+          <div class="dash-stat-sub" id="dstat-consistency-sub">green days</div>
         </div>
       </div>
     </div>
@@ -2269,15 +2326,14 @@ function doGet(e) {<br/>
             <tr>
               <th class="sortable sort-desc" onclick="setSortCol('date')" id="th-date">Date</th>
               <th>Time</th><th>Instrument</th><th>Direction</th><th>Contracts</th>
-              <th>Entry</th><th>Exit</th><th>Stop Dist</th>
+              <th>Entry</th><th>Exit</th>
               <th>Gross</th><th>Comm</th>
               <th class="sortable" onclick="setSortCol('net')" id="th-net">Net P&L</th>
-              <th class="sortable" onclick="setSortCol('r')" id="th-r">R</th>
               <th>Notes</th>
             </tr>
           </thead>
           <tbody id="trade-tbody">
-            <tr><td colspan="11">
+            <tr><td colspan="9">
               <div class="empty-state">
                 <div class="empty-icon">📋</div>
                 <div class="empty-text">No futures trades yet.<br/>Import a Tradovate CSV or add a trade manually.</div>
@@ -2858,7 +2914,6 @@ function renderTable() {
       '<td style="text-align:center;font-weight:' + (hasPartials ? '700' : '400') + '">' + t.contracts + '</td>' +
       '<td>' + entryDisplay + '</td>' +
       '<td>' + exitDisplay + '</td>' +
-      '<td style="color:var(--muted)">' + (t.stopDist > 0 ? t.stopDist.toFixed(2) + ' pts' : '—') + '</td>' +
       '<td class="' + grossClass + '">$' + t.gross.toFixed(2) + '</td>' +
       '<td style="color:var(--muted)">-$' + t.comm.toFixed(2) + '</td>' +
       '<td class="' + netClass + '" style="font-size:14px;">$' + t.net.toFixed(2) + '</td>' +
@@ -2882,11 +2937,9 @@ function renderTable() {
           '<td style="text-align:center;color:var(--muted)">' + part.contracts + '</td>' +
           '<td style="color:var(--muted)">' + part.entryPrice.toFixed(2) + '</td>' +
           '<td>' + part.exitPrice.toFixed(2) + '</td>' +
-          '<td>—</td>' +
           '<td class="' + (part.gross >= 0 ? 'pnl-pos' : 'pnl-neg') + '" style="opacity:0.85">$' + part.gross.toFixed(2) + '</td>' +
           '<td style="color:var(--muted)">-$' + part.comm.toFixed(2) + '</td>' +
           '<td class="' + pNetCls + '">$' + part.net.toFixed(2) + '</td>' +
-          '<td class="' + pRCls + '">' + pRStr + '</td>' +
           '<td>—</td>' +
           '</tr>'
         );
@@ -2899,11 +2952,11 @@ function renderTable() {
   if (rows.length > tradeRowsShown) {
     var visible = rows.slice(0, tradeRowsShown).join('');
     var remaining = rows.length - tradeRowsShown;
-    visible += '<tr><td colspan="11" style="text-align:center;padding:14px;"><button onclick="showMoreTrades()" style="' + btnStyle + '">▼ Show ' + remaining + ' more trades</button></td></tr>';
+    visible += '<tr><td colspan="9" style="text-align:center;padding:14px;"><button onclick="showMoreTrades()" style="' + btnStyle + '">▼ Show ' + remaining + ' more trades</button></td></tr>';
     tbody.innerHTML = visible;
   } else {
     if (tradeRowsShown > 15) {
-      rows.push('<tr><td colspan="11" style="text-align:center;padding:14px;"><button onclick="showLessTrades()" style="' + btnStyle + '">▲ Show less</button></td></tr>');
+      rows.push('<tr><td colspan="9" style="text-align:center;padding:14px;"><button onclick="showLessTrades()" style="' + btnStyle + '">▲ Show less</button></td></tr>');
     }
     tbody.innerHTML = rows.join('');
   }
@@ -3944,6 +3997,28 @@ let dashSource  = 'both';
 let pnlChart    = null;
 let wlChart     = null;
 
+function setMobileNav(view) {
+  ['dashboard','futures','options','goals','more','settings'].forEach(function(v) {
+    var btn = document.getElementById('mnav-' + v);
+    if (btn) btn.classList.remove('active');
+  });
+  var active = document.getElementById('mnav-' + view);
+  if (active) active.classList.add('active');
+}
+
+function toggleMobileMore() {
+  var menu = document.getElementById('mobile-more-menu');
+  var back = document.getElementById('mobile-more-backdrop');
+  var isOpen = menu.style.display !== 'none';
+  menu.style.display = isOpen ? 'none' : 'block';
+  back.style.display = isOpen ? 'none' : 'block';
+}
+
+function closeMobileMore() {
+  document.getElementById('mobile-more-menu').style.display = 'none';
+  document.getElementById('mobile-more-backdrop').style.display = 'none';
+}
+
 function switchView(view) {
   currentView = view;
   ['dashboard','futures','options','goals'].forEach(v => {
@@ -4085,6 +4160,7 @@ function renderDashboard() {
   renderWLChart(wins.length, losses.length);
   renderCalendar();
   renderBreakdowns(trades);
+  renderExtraStats(trades);
   } catch(e) { console.warn('renderDashboard error:', e); }
 }
 
@@ -4902,6 +4978,84 @@ function buildDashFilterOptions() {
   }
 }
 
+
+function renderExtraStats(trades) {
+  // Group trades by calendar day
+  var dayPnL = {};
+  trades.forEach(function(t) {
+    var d = (t.time instanceof Date ? t.time : new Date(t.time)).toDateString();
+    dayPnL[d] = (dayPnL[d] || 0) + (t.net || 0);
+  });
+  var days = Object.keys(dayPnL).sort(function(a,b) { return new Date(a) - new Date(b); });
+
+  // Current streak
+  var streak = 0;
+  var streakType = '';
+  for (var i = days.length - 1; i >= 0; i--) {
+    var pnl = dayPnL[days[i]];
+    if (streak === 0) { streakType = pnl >= 0 ? 'win' : 'loss'; }
+    if (streakType === 'win'  && pnl >= 0) streak++;
+    else if (streakType === 'loss' && pnl < 0) streak++;
+    else break;
+  }
+  var streakEl = document.getElementById('dstat-streak');
+  var streakSub = document.getElementById('dstat-streak-sub');
+  if (streakEl) {
+    if (streak === 0) {
+      streakEl.textContent = '—';
+      streakEl.style.color = '';
+      if (streakSub) streakSub.textContent = 'no trades';
+    } else {
+      streakEl.textContent = streak + (streakType === 'win' ? ' days' : ' days');
+      streakEl.style.color = streakType === 'win' ? 'var(--green)' : 'var(--red)';
+      if (streakSub) streakSub.textContent = streakType === 'win' ? 'green day streak' : 'red day streak';
+    }
+  }
+
+  // Best day / Worst day
+  var bestDay = null, bestPnL = -Infinity;
+  var worstDay = null, worstPnL = Infinity;
+  days.forEach(function(d) {
+    if (dayPnL[d] > bestPnL)  { bestPnL  = dayPnL[d]; bestDay  = d; }
+    if (dayPnL[d] < worstPnL) { worstPnL = dayPnL[d]; worstDay = d; }
+  });
+
+  var bestEl = document.getElementById('dstat-best-day');
+  var bestSub = document.getElementById('dstat-best-day-sub');
+  if (bestEl) {
+    bestEl.textContent = bestDay ? '+$' + bestPnL.toFixed(2) : '—';
+    bestEl.style.color = bestDay ? 'var(--green)' : '';
+    if (bestSub) bestSub.textContent = bestDay ? new Date(bestDay).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—';
+  }
+
+  var worstEl = document.getElementById('dstat-worst-day');
+  var worstSub = document.getElementById('dstat-worst-day-sub');
+  if (worstEl) {
+    worstEl.textContent = worstDay ? '-$' + Math.abs(worstPnL).toFixed(2) : '—';
+    worstEl.style.color = worstDay ? 'var(--red)' : '';
+    if (worstSub) worstSub.textContent = worstDay ? new Date(worstDay).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—';
+  }
+
+  // Consistency — always uses ALL trades regardless of filter
+  var allDayPnL = {};
+  state.trades.forEach(function(t) {
+    var d = (t.time instanceof Date ? t.time : new Date(t.time)).toDateString();
+    allDayPnL[d] = (allDayPnL[d] || 0) + (t.net || 0);
+  });
+  var allDays = Object.keys(allDayPnL);
+  var allGreenDays = allDays.filter(function(d) { return allDayPnL[d] > 0; }).length;
+  var avgDaily = days.length > 0 ? trades.reduce(function(s,t) { return s+(t.net||0); },0) / days.length : 0;
+
+  var consistencyPct = allDays.length > 0 ? (allGreenDays / allDays.length * 100) : 0;
+  var conEl = document.getElementById('dstat-consistency');
+  var conSub = document.getElementById('dstat-consistency-sub');
+  if (conEl) {
+    conEl.textContent = allDays.length > 0 ? consistencyPct.toFixed(0) + '%' : '—';
+    conEl.style.color = consistencyPct >= 60 ? 'var(--green)' : consistencyPct >= 40 ? '#f59e0b' : 'var(--red)';
+    if (conSub) conSub.textContent = allGreenDays + ' green of ' + allDays.length + ' days';
+  }
+}
+
 function renderBreakdowns(trades) {
   // Day of week breakdown
   const dowNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -5669,6 +5823,7 @@ function updateSidebarGoals() {
   const { data: { session } } = await sb.auth.getSession();
 
   initTheme();
+  setMobileNav('dashboard');
   if (session) {
     // Already logged in — skip auth screen
     await onSignedIn(session.user);
@@ -5687,32 +5842,45 @@ function updateSidebarGoals() {
 })();
 </script>
 <!-- Mobile Bottom Nav -->
-<nav class="mobile-bottom-nav">
-  <button class="mobile-nav-btn" onclick="toggleSidebar()">
-    <span class="mobile-nav-icon">☰</span>
-    <span>Menu</span>
+<nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+  <button class="mobile-nav-btn" id="mnav-dashboard" onclick="switchView('dashboard');setMobileNav('dashboard')">
+    <span class="mobile-nav-icon">📊</span>
+    <span>Dashboard</span>
   </button>
-  <button class="mobile-nav-btn" onclick="switchView('options')">
-    <span class="mobile-nav-icon">📈</span>
-    <span>Options</span>
+  <button class="mobile-nav-btn" id="mnav-futures" onclick="switchView('futures');setMobileNav('futures')">
+    <span class="mobile-nav-icon">⚡</span>
+    <span>Futures</span>
   </button>
-  <button class="mobile-nav-btn" onclick="openMobileImport()">
-    <span class="mobile-nav-icon">📂</span>
-    <span>Import</span>
-  </button>
-  <button class="mobile-nav-btn push-btn" onclick="openMobileAddTrade()">
+  <button class="mobile-nav-btn push-btn" id="mnav-add" onclick="openMobileAddTrade()">
     <span class="mobile-nav-icon">+</span>
-    <span>Add Trade</span>
+    <span>Add</span>
   </button>
-  <button class="mobile-nav-btn" onclick="pushAllToSheet()" style="opacity:0.6;">
-    <span class="mobile-nav-icon" style="font-size:16px;">☁</span>
-    <span>Backup</span>
+  <button class="mobile-nav-btn" id="mnav-more" onclick="toggleMobileMore()">
+    <span class="mobile-nav-icon">⋯</span>
+    <span>More</span>
   </button>
-  <button class="mobile-nav-btn" onclick="showSetup()">
+  <button class="mobile-nav-btn" id="mnav-settings" onclick="showSettings()">
     <span class="mobile-nav-icon">⚙</span>
     <span>Settings</span>
   </button>
 </nav>
+
+<!-- Mobile "More" menu -->
+<div id="mobile-more-menu" style="display:none;position:fixed;bottom:70px;right:0;left:0;background:var(--surface);border-top:1px solid var(--border);z-index:350;padding:8px 0;">
+  <button onclick="switchView('options');setMobileNav('options');closeMobileMore()" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 20px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;">
+    <span style="font-size:20px;">📈</span> Options
+  </button>
+  <button onclick="switchView('goals');setMobileNav('goals');closeMobileMore()" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 20px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;">
+    <span style="font-size:20px;">🎯</span> Goals
+  </button>
+  <button onclick="openMobileImport();closeMobileMore()" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 20px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;">
+    <span style="font-size:20px;">📂</span> Import CSV
+  </button>
+  <button onclick="openShareModal();closeMobileMore()" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 20px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;letter-spacing:1px;">
+    <span style="font-size:20px;">↗</span> Share
+  </button>
+</div>
+<div id="mobile-more-backdrop" style="display:none;position:fixed;inset:0;z-index:340;" onclick="closeMobileMore()"></div>
 
 
 <!-- ── OPTIONS ADD TRADE MODAL ────────────────────────────────── -->
