@@ -3807,20 +3807,15 @@ async function onSignedIn(user) {
   state.maxLoss = savedMaxLoss;
   setStatus('tv', 'connected', 'Ready');
 
-  // Load trades from Supabase
-  await loadTradesFromSupabase();
-  await loadOptionsFromSupabase();
-
-  // Load goals and accounts from Supabase
+  // Load goals and accounts FIRST so they're ready when trades finish
   const goals = await loadGoalsFromSupabase();
-  if (goals) {
-    localStorage.setItem('chartd_goals', JSON.stringify(goals));
-    renderGoals();
-    updateSidebarGoals(goals);
-    renderSidebarGoals(goals);
-  }
+  if (goals) localStorage.setItem('chartd_goals', JSON.stringify(goals));
   const accounts = await loadAccountsFromSupabase();
   if (accounts) renderAccounts();
+
+  // Load trades — sidebar goals render happens after trades load in loadTradesFromSupabase
+  await loadTradesFromSupabase();
+  await loadOptionsFromSupabase();
 
   initTheme();
   addLog(`Signed in as ${user.email}`, 'ok');
@@ -5864,6 +5859,10 @@ function renderSidebarGoals(goalsOverride) {
 
 
 function updateSidebarGoals(goalsOverride) {
+  renderSidebarGoals(goalsOverride);
+}
+
+function _updateSidebarGoalsOLD(goalsOverride) {
   const goals     = goalsOverride || loadGoals();
   const section   = document.getElementById('sidebar-goals-section');
   const container = document.getElementById('sidebar-goals-list');
