@@ -6513,7 +6513,11 @@ function markAsFunded(id) {
   acct.phase = 'funded';
   acct.fundedDate = new Date().toISOString().split('T')[0];
   saveAccountsData(accounts);
-  saveAccountToSupabase(acct);
+  saveAccountToSupabase(acct).then(function() {
+    var stored = loadAccounts();
+    var found = stored.find(function(a) { return a.id === acct.id; });
+    if (found) { found.supabaseId = acct.supabaseId; saveAccountsData(stored); }
+  });
   renderAccounts();
   toast('Account marked as Funded! 🎉', 'success');
 }
