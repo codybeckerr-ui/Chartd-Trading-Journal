@@ -5454,6 +5454,10 @@ function renderGoals() {
       '<div class="goal-numbers"><span>' + currentStr + ' current</span><span>' + pct.toFixed(0) + '%</span><span>' + targetStr + ' target</span></div>' +
     '</div>';
   }).join('');
+
+  // Always sync sidebar
+  updateSidebarGoals();
+  renderSidebarGoals();
 }
 
 // == SHARE CARD ==
