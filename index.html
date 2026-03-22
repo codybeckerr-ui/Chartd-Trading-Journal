@@ -1912,17 +1912,14 @@ function doGet(e) {<br/>
     <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;margin-left:10px;margin-top:4px;">TRADE JOURNAL</div>
   </div>
   <div class="header-right">
-    <div class="status-pill">
-      <div class="status-dot" id="tv-dot"></div>
-      <span id="tv-status-text">Ready</span>
-    </div>
-    <div class="status-pill">
-      <div class="status-dot" id="gs-dot"></div>
-      <span id="gs-status-text">Sheet: Off</span>
-    </div>
-    <div class="user-badge" id="user-badge" onclick="showSettings()" style="display:none;">
+
+
+    <div class="user-badge" id="user-badge" onclick="toggleUserMenu()" style="display:none;position:relative;">
       <div class="user-dot"></div>
       <span id="user-email-display">...</span>
+    </div>
+    <div id="user-menu" style="display:none;position:absolute;top:54px;right:120px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:6px;z-index:500;min-width:140px;box-shadow:0 8px 24px rgba(0,0,0,0.4);">
+      <button onclick="signOut()" style="display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;background:transparent;border:none;color:var(--red);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;border-radius:6px;letter-spacing:1px;" onmouseover="this.style.background='rgba(255,69,96,0.1)'" onmouseout="this.style.background='transparent'">→ SIGN OUT</button>
     </div>
     <button onclick="toggleTheme()" id="theme-btn" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 10px;border-radius:7px;cursor:pointer;font-size:16px;line-height:1;transition:all 0.15s;" title="Toggle light/dark mode">🌙</button>
     <button onclick="openShareModal()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;padding:7px 12px;border-radius:7px;cursor:pointer;letter-spacing:1px;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">↗ Share</button>
@@ -3806,11 +3803,8 @@ async function onSignedIn(user) {
   }
 
   // Restore settings
-  const savedUrl     = localStorage.getItem('chartd_gsUrl') || '';
   const savedMaxLoss = parseFloat(localStorage.getItem('chartd_maxLoss')) || 1000;
-  state.gsUrl   = savedUrl;
   state.maxLoss = savedMaxLoss;
-  if (savedUrl) setStatus('gs', 'connected', 'Sheet: On');
   setStatus('tv', 'connected', 'Ready');
 
   // Load trades from Supabase
@@ -3819,13 +3813,34 @@ async function onSignedIn(user) {
 
   // Load goals and accounts from Supabase
   const goals = await loadGoalsFromSupabase();
-  if (goals) renderGoals();
+  if (goals) {
+    localStorage.setItem('chartd_goals', JSON.stringify(goals));
+    renderGoals();
+    updateSidebarGoals(goals);
+    renderSidebarGoals(goals);
+  }
   const accounts = await loadAccountsFromSupabase();
   if (accounts) renderAccounts();
 
   initTheme();
   addLog(`Signed in as ${user.email}`, 'ok');
   toast(`Welcome back!`, 'success');
+}
+
+function toggleUserMenu() {
+  var menu = document.getElementById('user-menu');
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+  if (menu.style.display === 'block') {
+    // Close on outside click
+    setTimeout(function() {
+      document.addEventListener('click', function closeMenu(e) {
+        if (!document.getElementById('user-badge').contains(e.target)) {
+          menu.style.display = 'none';
+          document.removeEventListener('click', closeMenu);
+        }
+      });
+    }, 0);
+  }
 }
 
 async function signOut() {
@@ -3859,23 +3874,18 @@ function saveSettings() {
   const microComm   = parseFloat(document.getElementById('set-micro-comm').value)   || 1.00;
   const miniComm    = parseFloat(document.getElementById('set-mini-comm').value)    || 2.00;
   const perFillFee  = parseFloat(document.getElementById('set-per-fill-fee').value) || 0;
-  const gsUrl     = document.getElementById('set-gs-url').value.trim();
   const maxLoss   = parseFloat(document.getElementById('set-max-loss').value)   || 1000;
 
   state.microComm  = microComm;
   state.miniComm   = miniComm;
   state.perFillFee = perFillFee;
-  state.gsUrl     = gsUrl;
   state.maxLoss   = maxLoss;
 
   localStorage.setItem('chartd_microComm',  microComm);
   localStorage.setItem('chartd_miniComm',   miniComm);
   localStorage.setItem('chartd_perFillFee', perFillFee);
-  localStorage.setItem('chartd_gsUrl',     gsUrl);
   localStorage.setItem('chartd_maxLoss',   maxLoss);
 
-  if (gsUrl) setStatus('gs', 'connected', 'Sheet: On');
-  else       setStatus('gs', 'error', 'Sheet: Off');
 
   const mlInline = document.getElementById('max-loss-inline');
   if (mlInline) mlInline.value = maxLoss;
@@ -5785,10 +5795,10 @@ function renderStocks() {
 }
 
 
-function renderSidebarGoals() {
+function renderSidebarGoals(goalsOverride) {
   const el = document.getElementById('sidebar-goals-list');
   if (!el) return;
-  const goals = loadGoals();
+  const goals = goalsOverride || loadGoals();
   if (goals.length === 0) {
     el.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;padding:8px 0;">No goals set — <a href="#" onclick="switchView(\'goals\');return false;" style="color:var(--accent);">add one</a></div>';
     return;
@@ -5849,8 +5859,8 @@ function renderSidebarGoals() {
 }
 
 
-function updateSidebarGoals() {
-  const goals     = loadGoals();
+function updateSidebarGoals(goalsOverride) {
+  const goals     = goalsOverride || loadGoals();
   const section   = document.getElementById('sidebar-goals-section');
   const container = document.getElementById('sidebar-goals-list');
   if (!section || !container) return;
@@ -6610,7 +6620,6 @@ function getTradingDateStr(dt) {
   if (mlInline) mlInline.value = savedMaxLoss;
 
   // Pre-fill GS url in auth screen
-  const savedUrl = localStorage.getItem('chartd_gsUrl') || '';
 
   // Check if user is already signed in
   const { data: { session } } = await sb.auth.getSession();
@@ -6912,12 +6921,8 @@ function getTradingDateStr(dt) {
     </div>
   </div>
 
-    <label>Apps Script URL</label>
-    <input type="text" id="set-gs-url" placeholder="https://script.google.com/macros/s/..."/>
   </div>
 
-  <button class="btn btn-primary" onclick="saveSettings()" style="width:100%;margin-bottom:10px;">SAVE SETTINGS</button>
-  <button onclick="if(confirm('Sign out?'))signOut()" style="width:100%;background:transparent;border:1px solid rgba(255,69,96,0.3);color:var(--red);font-family:'DM Mono',monospace;font-size:12px;padding:10px;border-radius:8px;cursor:pointer;letter-spacing:1px;">SIGN OUT</button>
 </div>
 
 
