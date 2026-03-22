@@ -6340,9 +6340,9 @@ function saveAccount() {
 function deleteAccount(id) {
   if (!confirm('Remove this account?')) return;
   const accounts = loadAccounts();
-  const acct = accounts.find(function(a) { return a.id === id; });
+  const acct = accounts.find(function(a) { return String(a.id) === String(id); });
   if (acct && acct.supabaseId) deleteAccountFromSupabase(acct.supabaseId);
-  saveAccountsData(accounts.filter(function(a) { return a.id !== id; }));
+  saveAccountsData(accounts.filter(function(a) { return String(a.id) !== String(id); }));
   renderAccounts();
 }
 
@@ -6607,7 +6607,7 @@ function savePayout() {
   if (!date || !amount || amount <= 0) { toast('Enter a date and amount', 'error'); return; }
 
   var challenges = loadAccounts();
-  var c = challenges.find(function(x) { return x.id === cId; });
+  var c = challenges.find(function(x) { return String(x.id) === String(cId); });
   if (!c) return;
 
   // Calculate balance at time of payout
