@@ -3875,6 +3875,12 @@ async function onSignedIn(user) {
   await loadTradesFromSupabase();
   await loadOptionsFromSupabase();
 
+  // Load goals and accounts from Supabase
+  const goals = await loadGoalsFromSupabase();
+  if (goals) renderGoals();
+  const accounts = await loadAccountsFromSupabase();
+  if (accounts) renderAccounts();
+
   initTheme();
   addLog(`Signed in as ${user.email}`, 'ok');
   toast(`Welcome back!`, 'success');
