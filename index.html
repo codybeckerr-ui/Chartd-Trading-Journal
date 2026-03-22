@@ -1818,57 +1818,6 @@
 
     <div class="auth-divider"></div>
 
-    <!-- Optional Google Sheet backup -->
-    <div class="gs-optional-label">OPTIONAL — GOOGLE SHEET BACKUP</div>
-    <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.8;">
-      Your trades are saved to the cloud automatically. You can also sync to a Google Sheet as a backup.
-    </div>
-
-    <div>
-      <button onclick="toggleGsSetup()" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:11px 14px;border-radius:8px;font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;text-align:left;display:flex;align-items:center;justify-content:space-between;" id="gs-toggle-btn">
-        <span>Connect Google Sheet (optional)</span>
-        <span id="gs-toggle-arrow">▾</span>
-      </button>
-      <div id="gs-setup-panel" style="display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;background:var(--bg);padding:16px;">
-        <label>Apps Script URL</label>
-        <input type="text" id="gs-url" placeholder="https://script.google.com/macros/s/..."/>
-        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.9;margin-top:-6px;">
-          <a href="https://docs.google.com/spreadsheets/d/1F2pKKjzf1k63kU_qN28QAARS1hRSAN8Gmy0cLPhq_iQ/edit?usp=sharing" target="_blank" style="color:var(--accent);">→ Get the Chartd template</a><br/>
-          Need help? <a href="#" onclick="toggleAuthHelp()" style="color:var(--accent);">View setup guide</a>
-        </div>
-        <div id="auth-help-panel" style="display:none;margin-top:12px;">
-          <div class="gs-instructions" style="background:transparent;border:none;padding:0;margin:0;font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.9;">
-            1. Open template → File → Make a copy<br/>
-            2. Extensions → Apps Script → paste:<br/>
-            <code style="display:block;margin:8px 0;padding:8px;background:var(--surface2);border-radius:5px;color:var(--accent);font-size:10px;line-height:1.8;">
-function doPost(e){<br/>
-&nbsp;&nbsp;const sheet=SpreadsheetApp.getActiveSpreadsheet()<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;.getSheetByName("Trade Database");<br/>
-&nbsp;&nbsp;const d=JSON.parse(e.postData.contents);<br/>
-&nbsp;&nbsp;if(d.action==="appendRow")sheet.appendRow(d.row);<br/>
-&nbsp;&nbsp;return ContentService.createTextOutput("ok");<br/>
-}<br/>
-function doGet(e){return ContentService.createTextOutput("alive");}
-            </code>
-            3. Deploy → New Deployment → Web App<br/>
-            Execute as: <b style="color:var(--text)">Me</b> | Who has access: <b style="color:var(--text)">Anyone</b><br/>
-            Copy the URL → paste above.
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ══ SETUP SCREEN ══════════════════════════════════════════════ -->
-<div id="setup-screen" style="display:none;">
-  <div class="setup-card">
-    <div class="setup-title" style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:3px;">CHART<span>D</span></div>
-    <div class="setup-sub">Your prop firm trade journal. Import trades via CSV or log them manually. No login required.</div>
-
-    <label>Google Apps Script URL <span style="color:var(--muted)">(optional)</span></label>
-    <input type="text" id="gs-url" placeholder="https://script.google.com/macros/s/..."/>
-
     <!-- Need help accordion -->
     <div style="margin-bottom:16px;">
       <button onclick="toggleHelp()" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:11px 14px;border-radius:8px;font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;text-align:left;display:flex;align-items:center;justify-content:space-between;" id="help-btn">
@@ -2397,7 +2346,7 @@ function doGet(e) {<br/>
       <div id="export-banner" style="display:none;border-top:1px solid var(--border);padding:16px 0;margin-top:8px;">
         <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:10px;">BACKUP YOUR DATA</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <button onclick="pushAllToSheet()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;padding:8px 14px;border-radius:7px;cursor:pointer;letter-spacing:0.5px;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">↑ Push to Google Sheet</button>
+
           <button onclick="exportCSV()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;padding:8px 14px;border-radius:7px;cursor:pointer;letter-spacing:0.5px;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">↓ Export as CSV</button>
         </div>
         <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:8px;opacity:0.6;">Trades auto-save to cloud. These are optional backups.</div>
@@ -2572,7 +2521,6 @@ function doGet(e) {<br/>
 // == STATE ==
 const state = {
   trades: [],
-  gsUrl: '',
   maxLoss: 1000,
   commission: 1.00,
   microComm:   parseFloat(localStorage.getItem('chartd_microComm'))  || 1.00,
@@ -2594,13 +2542,10 @@ function showSetup() {
 }
 
 function launch() {
-  state.gsUrl   = document.getElementById('gs-url').value.trim();
   state.maxLoss = parseFloat(document.getElementById('max-loss-inline').value) || 1000;
   // Persist to localStorage so it survives page refresh
-  if (state.gsUrl) localStorage.setItem('chartd_gsUrl', state.gsUrl);
   localStorage.setItem('chartd_maxLoss', state.maxLoss);
   document.getElementById('setup-screen').style.display = 'none';
-  if (state.gsUrl) setStatus('gs', 'connected', 'Sheet: On');
   setStatus('tv', 'connected', 'Ready');
   addLog('Chartd Journal ready — import a CSV or add trades manually', 'ok');
   toast('Welcome to Chartd Journal!', 'success');
@@ -2654,7 +2599,6 @@ function addTrade(t) {
   updateStats();
   updateTradeSelect();
 
-  if (state.gsUrl) pushToSheet(trade);
   saveTradeToSupabase(trade);
   updateSidebarGoals();
   if (currentView === 'dashboard') renderDashboard();
@@ -2722,7 +2666,6 @@ function addPosition(p) {
   updateStats();
   updateTradeSelect();
 
-  if (state.gsUrl) pushToSheet(position);
   saveTradeToSupabase(position);
   if (currentView === 'dashboard') renderDashboard();
   const sign = totalNet >= 0 ? '+' : '';
@@ -2847,7 +2790,6 @@ function saveNotes() {
   trade.lesson = document.getElementById('note-lesson').value;
 
   renderTable();
-  if (state.gsUrl) pushToSheet(trade);
   updateTradeNotesInSupabase(trade);
   if (currentView === 'dashboard') renderDashboard();
   toast('Notes saved!', 'success');
@@ -3905,7 +3847,6 @@ function showSettings() {
   document.getElementById('set-micro-comm').value  = state.microComm  || 1.00;
   document.getElementById('set-mini-comm').value   = state.miniComm   || 2.00;
   document.getElementById('set-per-fill-fee').value = state.perFillFee != null ? state.perFillFee : 0.12;
-  document.getElementById('set-gs-url').value     = state.gsUrl || '';
   document.getElementById('set-max-loss').value   = state.maxLoss || 1000;
 }
 
@@ -5302,15 +5243,21 @@ function updateGoalLabel() {
   document.getElementById('goal-target-label').textContent = labels[type] || 'Target';
 }
 
-function saveGoal() {
+async function saveGoal() {
   const type   = document.getElementById('goal-type').value;
   const target = parseFloat(document.getElementById('goal-target').value);
   const notes  = document.getElementById('goal-notes').value;
 
   if (!target) { toast('Enter a target value', 'error'); return; }
 
+  const newGoal = { id: Date.now(), type, target, notes, created: new Date().toISOString() };
+
+  // Save to Supabase first to get UUID
+  await saveGoalToSupabase(newGoal);
+  // newGoal.id and newGoal.supabaseId are now the Supabase UUID
+
   const goals = loadGoals();
-  goals.push({ id: Date.now(), type, target, notes, created: new Date().toISOString() });
+  goals.push(newGoal);
   saveGoals(goals);
   closeGoalModal();
   renderGoals();
@@ -6335,12 +6282,15 @@ function saveAccount() {
 }
 
 function deleteAccount(id) {
-  if (!confirm('Remove this account?')) return;
+  if (!window.confirm('Remove this account?')) return;
   const accounts = loadAccounts();
   const acct = accounts.find(function(a) { return String(a.id) === String(id); });
-  if (acct && acct.supabaseId) deleteAccountFromSupabase(acct.supabaseId);
-  saveAccountsData(accounts.filter(function(a) { return String(a.id) !== String(id); }));
-  renderAccounts();
+  if (acct) {
+    if (acct.supabaseId) deleteAccountFromSupabase(acct.supabaseId);
+    saveAccountsData(accounts.filter(function(a) { return String(a.id) !== String(id); }));
+    renderAccounts();
+    toast('Account removed', 'info');
+  }
 }
 
 function updateChallengePnL(id, val) {
@@ -6412,8 +6362,8 @@ function renderAccounts() {
         '</div>' +
         '<div style="display:flex;align-items:center;gap:8px;">' +
           '<span style="font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:100px;background:rgba(0,0,0,0.2);border:1px solid ' + statusColor + ';color:' + statusColor + ';">' + statusText + '</span>' +
-          (isPassed ? '<button onclick="markAsFunded(' + c.id + ')" style="background:var(--green);color:#080c12;border:none;font-family:var(--mono);font-size:10px;font-weight:700;padding:4px 12px;border-radius:100px;cursor:pointer;letter-spacing:1px;">→ MARK FUNDED</button>' : '') +
-          '<button onclick="deleteAccount(' + c.id + ')" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 6px;">✕</button>' +
+          (isPassed ? '<button onclick="markAsFunded(\'' + c.id + '\')" style="background:var(--green);color:#080c12;border:none;font-family:var(--mono);font-size:10px;font-weight:700;padding:4px 12px;border-radius:100px;cursor:pointer;letter-spacing:1px;">→ MARK FUNDED</button>' : '') +
+          '<button onclick="deleteAccount(\'' + c.id + '\')" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 6px;">✕</button>' +
         '</div>' +
       '</div>' +
 
@@ -6463,7 +6413,7 @@ function renderAccounts() {
         '<div style="margin-bottom:16px;padding:14px;background:var(--surface2);border-radius:10px;">' +
           '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
             '<div style="font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:2px;">PAYOUTS</div>' +
-            '<button onclick="openPayoutModal(' + c.id + ')" style="background:var(--accent);color:#080c12;border:none;font-family:var(--mono);font-size:10px;font-weight:700;padding:4px 12px;border-radius:5px;cursor:pointer;letter-spacing:1px;">+ LOG PAYOUT</button>' +
+            '<button onclick="openPayoutModal(\'' + c.id + '\')" style="background:var(--accent);color:#080c12;border:none;font-family:var(--mono);font-size:10px;font-weight:700;padding:4px 12px;border-radius:5px;cursor:pointer;letter-spacing:1px;">+ LOG PAYOUT</button>' +
           '</div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:' + ((c.payouts||[]).length > 0 ? '12px' : '0') + ';">' +
             '<div><div style="font-family:var(--mono);font-size:8px;color:var(--muted);">GROSS EARNED</div><div style="font-weight:700;color:var(--green);">+$' + displayPnl.toFixed(2) + '</div></div>' +
@@ -6670,7 +6620,6 @@ function getTradingDateStr(dt) {
 
   // Pre-fill GS url in auth screen
   const savedUrl = localStorage.getItem('chartd_gsUrl') || '';
-  if (savedUrl) document.getElementById('gs-url').value = savedUrl;
 
   // Check if user is already signed in
   const { data: { session } } = await sb.auth.getSession();
@@ -6972,9 +6921,6 @@ function getTradingDateStr(dt) {
     </div>
   </div>
 
-  <!-- Google Sheet -->
-  <div style="margin-bottom:24px;">
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:12px;">GOOGLE SHEET BACKUP (OPTIONAL)</div>
     <label>Apps Script URL</label>
     <input type="text" id="set-gs-url" placeholder="https://script.google.com/macros/s/..."/>
   </div>
