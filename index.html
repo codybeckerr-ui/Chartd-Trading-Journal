@@ -5229,26 +5229,22 @@ function initTheme() {
 }
 
 // == GOALS ==
-// Goals — Supabase backed with localStorage cache
 async function loadGoalsFromSupabase() {
-  if (!currentUser) return;
+  if (!currentUser) return [];
   try {
     const { data, error } = await sb.from('goals').select('*').eq('user_id', currentUser.id);
     if (error) throw error;
-    if (data) {
-      const goals = data.map(function(r) {
-        return { id: r.id, supabaseId: r.id, type: r.type, target: r.target, notes: r.notes, created: r.created_at };
-      });
-      localStorage.setItem('chartd_goals', JSON.stringify(goals));
-      return goals;
-    }
-  } catch(e) { addLog('Goals load error: ' + e.message, 'err'); }
-  return [];
+    const goals = (data || []).map(function(r) {
+      return { id: r.id, supabaseId: r.id, type: r.type, target: r.target, notes: r.notes || '', created: r.created_at };
+    });
+    localStorage.setItem('chartd_goals', JSON.stringify(goals));
+    return goals;
+  } catch(e) { addLog('Goals load error: ' + e.message, 'err'); return []; }
 }
 
 function loadGoals() {
-  const saved = localStorage.getItem('chartd_goals');
-  return saved ? JSON.parse(saved) : [];
+  const s = localStorage.getItem('chartd_goals');
+  return s ? JSON.parse(s) : [];
 }
 
 function saveGoals(goals) {
@@ -5257,19 +5253,22 @@ function saveGoals(goals) {
 
 async function saveGoalToSupabase(goal) {
   if (!currentUser) return;
+  const payload = { user_id: currentUser.id, type: goal.type, target: goal.target, notes: goal.notes || '' };
   try {
     if (goal.supabaseId) {
-      await sb.from('goals').update({ type: goal.type, target: goal.target, notes: goal.notes }).eq('id', goal.supabaseId);
+      const { error } = await sb.from('goals').update(payload).eq('id', goal.supabaseId);
+      if (error) throw error;
     } else {
-      const { data } = await sb.from('goals').insert({ user_id: currentUser.id, type: goal.type, target: goal.target, notes: goal.notes || '' }).select();
-      if (data && data[0]) goal.supabaseId = data[0].id;
+      const { data, error } = await sb.from('goals').insert(payload).select();
+      if (error) throw error;
+      if (data && data[0]) { goal.supabaseId = data[0].id; goal.id = data[0].id; }
     }
   } catch(e) { addLog('Goal save error: ' + e.message, 'err'); }
 }
 
-async function deleteGoalFromSupabase(id) {
-  if (!currentUser) return;
-  try { await sb.from('goals').delete().eq('id', id); } catch(e) {}
+async function deleteGoalFromSupabase(supabaseId) {
+  if (!currentUser || !supabaseId) return;
+  try { await sb.from('goals').delete().eq('id', supabaseId); } catch(e) {}
 }
 
 function openGoalModal() {
@@ -5326,9 +5325,9 @@ function saveGoal() {
 function deleteGoal(id) {
   if (!confirm('Delete this goal?')) return;
   const goals = loadGoals();
-  const goal = goals.find(function(g) { return g.id === id; });
+  const goal = goals.find(function(g) { return String(g.id) === String(id); });
   if (goal && goal.supabaseId) deleteGoalFromSupabase(goal.supabaseId);
-  saveGoals(goals.filter(function(g) { return g.id !== id; }));
+  saveGoals(goals.filter(function(g) { return String(g.id) !== String(id); }));
   renderGoals();
 }
 
@@ -6220,28 +6219,24 @@ function updateChallengePreview() {
   }
 }
 
-// Challenge Accounts — Supabase backed with localStorage cache
 async function loadAccountsFromSupabase() {
-  if (!currentUser) return;
+  if (!currentUser) return [];
   try {
     const { data, error } = await sb.from('challenge_accounts').select('*').eq('user_id', currentUser.id);
     if (error) throw error;
-    if (data) {
-      const accounts = data.map(function(r) {
-        return {
-          id: r.id, supabaseId: r.id,
-          firm: r.firm, type: r.type, size: r.size, phase: r.phase,
-          nickname: r.nickname, linkedAcct: r.linked_acct, startDate: r.start_date,
-          target: r.target, mll: r.mll, dll: r.dll, consistency: r.consistency,
-          hasDLL: r.has_dll, typeLabel: r.type_label, fundedDate: r.funded_date,
-          payouts: r.payouts || [], currentPnl: 0
-        };
-      });
-      localStorage.setItem('chartd_accounts', JSON.stringify(accounts));
-      return accounts;
-    }
-  } catch(e) { addLog('Accounts load error: ' + e.message, 'err'); }
-  return [];
+    const accounts = (data || []).map(function(r) {
+      return {
+        id: r.id, supabaseId: r.id,
+        firm: r.firm, type: r.type, size: r.size, phase: r.phase,
+        nickname: r.nickname, linkedAcct: r.linked_acct, startDate: r.start_date,
+        target: r.target, mll: r.mll, dll: r.dll, consistency: r.consistency,
+        hasDLL: r.has_dll, typeLabel: r.type_label, fundedDate: r.funded_date,
+        payouts: r.payouts || [], currentPnl: 0
+      };
+    });
+    localStorage.setItem('chartd_accounts', JSON.stringify(accounts));
+    return accounts;
+  } catch(e) { addLog('Accounts load error: ' + e.message, 'err'); return []; }
 }
 
 function loadAccounts() {
@@ -6249,8 +6244,8 @@ function loadAccounts() {
   return s ? JSON.parse(s) : [];
 }
 
-function saveAccountsData(data) {
-  localStorage.setItem('chartd_accounts', JSON.stringify(data));
+function saveAccountsData(accounts) {
+  localStorage.setItem('chartd_accounts', JSON.stringify(accounts));
 }
 
 async function saveAccountToSupabase(acct) {
@@ -6266,10 +6261,12 @@ async function saveAccountToSupabase(acct) {
   };
   try {
     if (acct.supabaseId) {
-      await sb.from('challenge_accounts').update(payload).eq('id', acct.supabaseId);
+      const { error } = await sb.from('challenge_accounts').update(payload).eq('id', acct.supabaseId);
+      if (error) throw error;
     } else {
-      const { data } = await sb.from('challenge_accounts').insert(payload).select();
-      if (data && data[0]) acct.supabaseId = data[0].id;
+      const { data, error } = await sb.from('challenge_accounts').insert(payload).select();
+      if (error) throw error;
+      if (data && data[0]) { acct.supabaseId = data[0].id; acct.id = data[0].id; }
     }
   } catch(e) { addLog('Account save error: ' + e.message, 'err'); }
 }
