@@ -3805,17 +3805,22 @@ async function onSignedIn(user) {
   // Restore settings
   const savedMaxLoss = parseFloat(localStorage.getItem('chartd_maxLoss')) || 1000;
   state.maxLoss = savedMaxLoss;
-  setStatus('tv', 'connected', 'Ready');
 
-  // Load goals and accounts FIRST so they're ready when trades finish
+  // 1. Load goals first — write to localStorage
   const goals = await loadGoalsFromSupabase();
   if (goals) localStorage.setItem('chartd_goals', JSON.stringify(goals));
-  const accounts = await loadAccountsFromSupabase();
-  if (accounts) renderAccounts();
 
-  // Load trades — sidebar goals render happens after trades load in loadTradesFromSupabase
+  // 2. Load accounts — write to localStorage
+  const accounts = await loadAccountsFromSupabase();
+  if (accounts) localStorage.setItem('chartd_accounts', JSON.stringify(accounts));
+
+  // 3. Load trades — renderSidebarGoals is called at end of loadTradesFromSupabase
   await loadTradesFromSupabase();
   await loadOptionsFromSupabase();
+
+  // 4. Render everything now that all data is loaded
+  renderGoals();
+  renderAccounts();
 
   initTheme();
   addLog(`Signed in as ${user.email}`, 'ok');
@@ -4001,6 +4006,7 @@ async function loadTradesFromSupabase() {
       if (currentView === 'dashboard') renderDashboard();
     } else {
       addLog('No trades found — import a CSV to get started', 'info');
+      renderSidebarGoals();
     }
   } catch(e) {
     addLog('Failed to load trades: ' + e.message, 'err');
