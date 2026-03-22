@@ -6234,49 +6234,40 @@ function closeAccountModal() {
   document.getElementById('account-modal-overlay').style.display = 'none';
 }
 
-function saveAccount() {
-  const firm     = document.getElementById('ch-firm').value;
-  const type     = document.getElementById('ch-type').value;
-  const size     = parseInt(document.getElementById('ch-size').value);
-  const phase    = document.getElementById('ch-phase').value;
-  const nickname = document.getElementById('ch-nickname').value.trim();
+async function saveAccount() {
+  const firm       = document.getElementById('ch-firm').value;
+  const type       = document.getElementById('ch-type').value;
+  const size       = parseInt(document.getElementById('ch-size').value);
+  const phase      = document.getElementById('ch-phase').value;
+  const nickname   = document.getElementById('ch-nickname').value.trim();
   const linkedAcct = document.getElementById('ch-linked-acct') ? document.getElementById('ch-linked-acct').value : '';
-  const startDate   = document.getElementById('ch-start-date') ? document.getElementById('ch-start-date').value : '';
-  // P&L auto-calculated from linked account — no manual entry
-  var currentPnl = 0;
+  const startDate  = document.getElementById('ch-start-date') ? document.getElementById('ch-start-date').value : '';
 
   const typeData = CHALLENGE_DATA[firm] && CHALLENGE_DATA[firm][type];
   const sizeData = typeData && typeData.sizes[size];
   if (!sizeData) { toast('Invalid selection', 'error'); return; }
 
   const acct = {
-    id:       Date.now(),
-    firm,
-    type,
-    size,
-    phase,
-    nickname,
-    linkedAcct,
-    startDate,
-    currentPnl,
-    payouts: [],
-    target:   sizeData.target,
-    mll:      sizeData.mll,
-    dll:      sizeData.dll,
+    id: Date.now(), supabaseId: null,
+    firm, type, size, phase, nickname, linkedAcct, startDate,
+    currentPnl: 0, payouts: [],
+    target: sizeData.target, mll: sizeData.mll, dll: sizeData.dll,
     consistency: typeData.consistencyEval || typeData.consistencyFunded,
-    hasDLL:   typeData.hasDLL,
-    typeLabel: typeData.label,
-    created:  new Date().toISOString()
+    hasDLL: typeData.hasDLL, typeLabel: typeData.label,
+    created: new Date().toISOString()
   };
 
-  const challenges = loadAccounts();
-  challenges.unshift(acct);
-  saveAccountsData(challenges);
+  // Save to Supabase first — get UUID back
+  await saveAccountToSupabase(acct);
+  // acct.id and acct.supabaseId are now the Supabase UUID
+
+  const accounts = loadAccounts();
+  accounts.unshift(acct);
+  saveAccountsData(accounts);
   closeAccountModal();
   renderAccounts();
   toast('Account added', 'success');
 
-  // Reset
   document.getElementById('ch-nickname').value = '';
   document.getElementById('ch-current-pnl').value = '0';
 }
