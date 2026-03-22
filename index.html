@@ -5448,7 +5448,7 @@ function renderGoals() {
         '</div>' +
         '<div style="display:flex;align-items:center;gap:8px;">' +
           '<span class="goal-badge ' + status + '">' + badge + '</span>' +
-          '<button class="goal-delete" onclick="deleteGoal(' + g.id + ')">✕</button>' +
+          '<button class="goal-delete" onclick="deleteGoal(\'' + g.id + '\')">✕</button>' +
         '</div>' +
       '</div>' +
       '<div class="goal-progress-bar"><div class="goal-progress-fill" style="width:' + pct + '%;background:' + fillColor + ';"></div></div>' +
