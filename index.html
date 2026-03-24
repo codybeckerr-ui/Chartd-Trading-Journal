@@ -2434,7 +2434,14 @@ function doGet(e) {<br/>
     <!-- ── CHALLENGE VIEW ────────────────────────────────────────── -->
     <div class="main" id="view-accounts" style="display:none;">
       <div class="section-header">
-        <div class="section-title">Accounts</div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="section-title">Accounts</div>
+          <div style="display:flex;gap:6px;" id="accounts-phase-tabs">
+            <button onclick="setAccountsFilter('all')" id="acct-filter-all" style="font-family:var(--mono);font-size:10px;padding:5px 12px;border-radius:20px;border:1px solid var(--accent);background:var(--accent);color:#080c12;cursor:pointer;letter-spacing:1px;font-weight:700;">ALL</button>
+            <button onclick="setAccountsFilter('eval')" id="acct-filter-eval" style="font-family:var(--mono);font-size:10px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;letter-spacing:1px;">EVAL</button>
+            <button onclick="setAccountsFilter('funded')" id="acct-filter-funded" style="font-family:var(--mono);font-size:10px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;letter-spacing:1px;">FUNDED</button>
+          </div>
+        </div>
         <button class="btn btn-primary" style="width:auto;padding:10px 20px;font-size:13px;font-weight:700;background:var(--accent);color:#080c12;" onclick="openAccountModal()">+ Add Account</button>
       </div>
       <div id="accounts-container">
@@ -6194,10 +6201,10 @@ async function loadAccountsFromSupabase() {
       return {
         id: r.id, supabaseId: r.id,
         firm: r.firm, type: r.type, size: r.size, phase: r.phase,
-        nickname: r.nickname, linkedAcct: r.linked_acct, startDate: r.start_date,
+        nickname: r.nickname, linkedAcct: r.linked_acct, startDate: r.start_date, startBalance: r.starting_balance || 50000,
         target: r.target, mll: r.mll, dll: r.dll, consistency: r.consistency,
         hasDLL: r.has_dll, typeLabel: r.type_label, fundedDate: r.funded_date,
-        payouts: r.payouts || [], currentPnl: 0
+        payouts: r.payouts || [], currentPnl: 0, manualBalance: r.manual_balance || 0, manualWatermark: r.manual_watermark || 0
       };
     });
     localStorage.setItem('chartd_accounts', JSON.stringify(accounts));
@@ -6220,10 +6227,12 @@ async function saveAccountToSupabase(acct) {
     user_id: currentUser.id,
     firm: acct.firm, type: acct.type, size: acct.size, phase: acct.phase,
     nickname: acct.nickname || '', linked_acct: acct.linkedAcct || null,
-    start_date: acct.startDate || null, target: acct.target, mll: acct.mll,
+    start_date: acct.startDate || null, starting_balance: acct.startBalance || 50000, target: acct.target, mll: acct.mll,
     dll: acct.dll || 0, consistency: acct.consistency ? String(acct.consistency) : null,
     has_dll: acct.hasDLL || false, type_label: acct.typeLabel,
-    funded_date: acct.fundedDate || null, payouts: acct.payouts || []
+    funded_date: acct.fundedDate || null, payouts: acct.payouts || [],
+    manual_balance: acct.manualBalance || 0,
+    manual_watermark: acct.manualWatermark || 0,
   };
   try {
     if (acct.supabaseId) {
@@ -6245,8 +6254,12 @@ async function deleteAccountFromSupabase(supabaseId) {
 function openAccountModal() {
   document.getElementById('account-modal').style.display = 'block';
   document.getElementById('account-modal-overlay').style.display = 'block';
+  document.getElementById('ch-manual-balance').value = '';
+  if (document.getElementById('ch-watermark')) document.getElementById('ch-watermark').value = '';
+  if (document.getElementById('ch-watermark-wrap')) document.getElementById('ch-watermark-wrap').style.display = 'none';
   updateChallengeFields();
   populateChallengeAcctSelect();
+
 }
 function closeAccountModal() {
   document.getElementById('account-modal').style.display = 'none';
@@ -6260,7 +6273,8 @@ async function saveAccount() {
   const phase      = document.getElementById('ch-phase').value;
   const nickname   = document.getElementById('ch-nickname').value.trim();
   const linkedAcct = document.getElementById('ch-linked-acct') ? document.getElementById('ch-linked-acct').value : '';
-  const startDate  = document.getElementById('ch-start-date') ? document.getElementById('ch-start-date').value : '';
+  const startDate        = document.getElementById('ch-start-date') ? document.getElementById('ch-start-date').value : '';
+  const startBalance  = size; // starting balance = account size
 
   const typeData = CHALLENGE_DATA[firm] && CHALLENGE_DATA[firm][type];
   const sizeData = typeData && typeData.sizes[size];
@@ -6268,7 +6282,7 @@ async function saveAccount() {
 
   const acct = {
     id: Date.now(), supabaseId: null,
-    firm, type, size, phase, nickname, linkedAcct, startDate,
+    firm, type, size, phase, nickname, linkedAcct, startDate, startBalance,
     currentPnl: 0, payouts: [],
     target: sizeData.target, mll: sizeData.mll, dll: sizeData.dll,
     consistency: typeData.consistencyEval || typeData.consistencyFunded,
@@ -6309,6 +6323,51 @@ function updateChallengePnL(id, val) {
   if (acct) { acct.currentPnl = parseFloat(val) || 0; saveAccountsData(challenges); renderAccounts(); }
 }
 
+function toggleWatermarkField() {
+  var bal = parseFloat(document.getElementById('ch-manual-balance').value);
+  var wrap = document.getElementById('ch-watermark-wrap');
+  if (wrap) wrap.style.display = bal > 0 ? 'block' : 'none';
+  updateFloorPreview();
+}
+
+function updateFloorPreview() {
+  var el = document.getElementById('ch-floor-preview');
+  if (!el) return;
+  var wm  = parseFloat(document.getElementById('ch-watermark').value) || 0;
+  var mll = 0;
+  // Try to get MLL from current firm/type/size selection
+  var firm = document.getElementById('ch-firm') ? document.getElementById('ch-firm').value : '';
+  var type = document.getElementById('ch-type') ? document.getElementById('ch-type').value : '';
+  var size = parseInt(document.getElementById('ch-size') ? document.getElementById('ch-size').value : 0);
+  var data = CHALLENGE_DATA[firm] && CHALLENGE_DATA[firm][type] && CHALLENGE_DATA[firm][type].sizes[size];
+  if (data) mll = data.mll;
+  if (wm > 0 && mll > 0) {
+    el.textContent = 'Floor = $' + (wm - mll).toLocaleString() + ' (watermark $' + wm.toLocaleString() + ' - MLL $' + mll.toLocaleString() + ')';
+  } else {
+    el.textContent = '';
+  }
+}
+
+var accountsPhaseFilter = 'all';
+
+function setAccountsFilter(phase) {
+  accountsPhaseFilter = phase;
+  ['all','eval','funded'].forEach(function(p) {
+    var btn = document.getElementById('acct-filter-' + p);
+    if (!btn) return;
+    if (p === phase) {
+      btn.style.background = 'var(--accent)';
+      btn.style.color = '#080c12';
+      btn.style.borderColor = 'var(--accent)';
+    } else {
+      btn.style.background = 'transparent';
+      btn.style.color = 'var(--muted)';
+      btn.style.borderColor = 'var(--border)';
+    }
+  });
+  renderAccounts();
+}
+
 function renderAccounts() {
   const container = document.getElementById('accounts-container');
   if (!container) return;
@@ -6321,7 +6380,16 @@ function renderAccounts() {
 
   const firmNames = { lucid: 'Lucid Trading', tradeify: 'Tradeify' };
 
-  container.innerHTML = challenges.map(function(c) {
+  // Apply phase filter
+  var filtered = accountsPhaseFilter === 'all' ? challenges :
+    challenges.filter(function(c) { return c.phase === accountsPhaseFilter; });
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-text">No ' + accountsPhaseFilter + ' accounts.</div></div>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(function(c) {
     // Auto-calculate P&L from linked account with start date filter
     var displayPnl = c.currentPnl || 0;
     var acctTradesForCalc = [];
@@ -6341,19 +6409,31 @@ function renderAccounts() {
     var netAfterPayouts = displayPnl - totalPayouts;
     const progressPnl = c.phase === 'funded' ? netAfterPayouts : displayPnl;
     const progress = c.target > 0 ? Math.min(100, Math.max(0, progressPnl / c.target * 100)) : 0;
-    // EOD trailing drawdown calculation
-    var wm = { watermark: 50000, drawdownUsed: 0 };
-    if (c.linkedAcct) {
-      wm = calcEODWatermark(c.linkedAcct, c.startDate, 50000);
+    // Calculate effective balance and drawdown
+    var startBal     = c.size || 50000;
+    var effectiveBal = c.manualBalance > 0 ? (c.manualBalance + displayPnl) : (startBal + displayPnl);
+    var watermark    = startBal; // default watermark = account size
+    var drawdownUsed = 0;
+
+    if (c.manualBalance > 0) {
+      // Manual balance mode: watermark from field or account size
+      watermark    = (c.manualWatermark > 0) ? c.manualWatermark : startBal;
+      drawdownUsed = Math.max(0, watermark - effectiveBal);
+    } else if (c.linkedAcct) {
+      // CSV-only mode: EOD trailing watermark from trades
+      var wm       = calcEODWatermark(c.linkedAcct, c.startDate, startBal);
+      watermark    = wm.watermark;
+      drawdownUsed = wm.drawdownUsed;
+      effectiveBal = startBal + displayPnl;
     } else {
-      // No linked account — fall back to simple P&L based calc
-      wm.drawdownUsed = Math.max(0, -(c.phase === 'funded' ? netAfterPayouts : displayPnl));
+      // No link, no manual — simple loss calc
+      drawdownUsed = Math.max(0, startBal - effectiveBal);
     }
-    const mllUsed    = wm.drawdownUsed;
-    const mllPct     = Math.min(100, mllUsed / c.mll * 100);
-    const watermark  = wm.watermark;
+
     const floor      = watermark - c.mll;
-    const buffer     = (50000 + (c.phase === 'funded' ? netAfterPayouts : displayPnl)) - floor;
+    const buffer     = effectiveBal - floor;
+    const mllUsed    = drawdownUsed;
+    const mllPct     = Math.min(100, mllUsed / c.mll * 100);
     const isInDanger = mllPct >= 80;
     const isPassed   = c.target > 0 && c.phase === 'eval' && displayPnl >= c.target;
     const label      = c.nickname || (firmNames[c.firm] + ' ' + c.typeLabel + ' $' + c.size.toLocaleString());
@@ -6480,7 +6560,7 @@ function markAsFunded(id) {
 }
 
 
-function calcEODWatermark(linkedAcct, startDate, startingBalance) {
+function calcEODWatermark(linkedAcct, startDate, startBalance) {
   // Get all trades for this account from start date
   var acctTrades = state.trades.filter(function(t) {
     if ((t.acct || 'default') !== linkedAcct) return false;
@@ -6491,7 +6571,7 @@ function calcEODWatermark(linkedAcct, startDate, startingBalance) {
     return true;
   });
 
-  if (!acctTrades.length) return { watermark: startingBalance, floor: startingBalance, drawdownUsed: 0, buffer: 0 };
+  if (!acctTrades.length) return { watermark: startBalance, floor: startBalance, drawdownUsed: 0, buffer: 0 };
 
   // Group by trading session date (EOD)
   var dayPnL = {};
@@ -6502,8 +6582,8 @@ function calcEODWatermark(linkedAcct, startDate, startingBalance) {
 
   // Walk through days in order, tracking running balance and watermark
   var days = Object.keys(dayPnL).sort(function(a, b) { return new Date(a) - new Date(b); });
-  var balance    = startingBalance;
-  var watermark  = startingBalance;
+  var balance    = startBalance;
+  var watermark  = startBalance;
 
   days.forEach(function(day) {
     balance += dayPnL[day];
@@ -7096,6 +7176,17 @@ function getTradingDateStr(dt) {
 
   <label>Account Nickname (optional)</label>
   <input type="text" id="ch-nickname" placeholder="e.g. Lucid Flex 50K"/>
+
+  <!-- Manual balance + watermark -->
+  <div id="ch-manual-balance-wrap">
+    <label>Current Balance ($) <span style="color:var(--muted);font-size:11px;">— leave blank to auto-calculate from trades</span></label>
+    <input type="number" id="ch-manual-balance" placeholder="50000.00" step="0.01" min="0" oninput="toggleWatermarkField()"/>
+  </div>
+  <div id="ch-watermark-wrap" style="display:none;">
+    <label>High Watermark ($) <span style="color:var(--muted);font-size:11px;">— highest EOD balance reached (leave blank to use account size)</span></label>
+    <input type="number" id="ch-watermark" placeholder="50000.00" step="0.01" min="0"/>
+    <div id="ch-floor-preview" style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:6px;"></div>
+  </div>
 
   <!-- Live P&L preview from linked account -->
   <div id="ch-pnl-preview" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:4px;">
