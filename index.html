@@ -59,7 +59,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 18px 32px;
+    padding: 12px 24px;
     border-bottom: 1px solid var(--border);
     background: rgba(10,11,15,0.95);
     backdrop-filter: blur(12px);
@@ -117,41 +117,118 @@
   .app {
     position: relative; z-index: 1;
     display: grid;
-    grid-template-columns: 360px 1fr;
-    grid-template-rows: auto 1fr;
-    height: calc(100vh - 73px);
+    grid-template-columns: 220px 1fr;
+    height: calc(100vh - 65px);
+    overflow: hidden;
   }
 
-  /* ── SIDEBAR ─────────────────────────────────────────────────── */
+  /* ── NAV SIDEBAR ─────────────────────────────────────────────── */
   .sidebar {
-    grid-row: 1 / 3;
     border-right: 1px solid var(--border);
     background: var(--surface);
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-  }
-  @media (max-width: 768px) {
-    .sidebar { background: #0f1520 !important; }
+    padding: 16px 0;
+    flex-shrink: 0;
   }
 
   .sidebar::-webkit-scrollbar { width: 4px; }
   .sidebar::-webkit-scrollbar-track { background: transparent; }
   .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
+  /* Nav section labels */
   .sidebar-section {
-    padding: 24px;
-    border-bottom: 1px solid var(--border);
+    padding: 0 12px;
+    margin-bottom: 4px;
   }
 
   .sidebar-label {
     font-family: var(--mono);
-    font-size: 11px;
-    color: var(--accent);
+    font-size: 9px;
+    color: var(--muted);
     letter-spacing: 2px;
     text-transform: uppercase;
-    margin-bottom: 16px;
+    padding: 10px 12px 6px;
+    display: block;
   }
+
+  /* Nav items */
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    margin: 1px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--muted);
+    border: none;
+    background: transparent;
+    width: calc(100% - 16px);
+    text-align: left;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: rgba(0,229,160,0.1); color: var(--accent); }
+  .nav-item.active .nav-icon { color: var(--accent); }
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+  .nav-divider { height: 1px; background: var(--border); margin: 10px 12px; }
+
+  /* New Trade FAB */
+  #fab-new-trade {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    z-index: 200;
+    background: var(--accent);
+    color: #080c12;
+    border: none;
+    border-radius: 14px;
+    padding: 14px 22px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 24px rgba(0,229,160,0.35);
+    transition: all 0.15s;
+  }
+  #fab-new-trade:hover { background: #00c98c; transform: translateY(-2px); box-shadow: 0 6px 30px rgba(0,229,160,0.45); }
+  #fab-new-trade:active { transform: translateY(0); }
+
+  /* Sidebar bottom user section */
+  .sidebar-user {
+    margin-top: auto;
+    padding: 12px 8px;
+    border-top: 1px solid var(--border);
+  }
+  .sidebar-user-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    width: 100%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    transition: all 0.15s;
+    letter-spacing: 0.5px;
+    text-align: left;
+  }
+  .sidebar-user-btn:hover { background: var(--surface2); color: var(--text); }
 
   /* ── FORM ELEMENTS ───────────────────────────────────────────── */
   label {
@@ -636,15 +713,6 @@
     color: var(--muted) !important;
   }
 
-  .sidebar-label {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    color: var(--accent);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    margin-bottom: 16px;
-  }
-
   .stat-label {
     font-family: 'DM Mono', monospace;
     font-size: 11px;
@@ -825,8 +893,7 @@
   .sidebar {
     position: fixed;
     top: 0; left: 0; bottom: 0;
-    width: 88vw;
-    max-width: 360px;
+    width: 260px;
     z-index: 310;
     transform: translateX(-100%) translateZ(0);
     -webkit-transform: translateX(-100%) translateZ(0);
@@ -840,8 +907,12 @@
     will-change: transform;
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
+    padding: 16px 0 100px;
   }
   .sidebar.open { transform: translateX(0) translateZ(0); -webkit-transform: translateX(0) translateZ(0); }
+
+  /* Hide FAB on mobile — use bottom nav instead */
+  #fab-new-trade { display: none !important; }
 
   /* Drawer backdrop */
   .drawer-backdrop {
@@ -1087,14 +1158,16 @@
   /* Hide desktop view tabs on mobile — use bottom nav instead */
   .view-tabs { display: none !important; }
 
-  /* Header on mobile — just logo + theme toggle */
+  /* Header on mobile */
   .header-right { gap: 6px; }
   .header-right .btn { display: none; }
-  #theme-btn { display: flex !important; }
+  #hamburger-btn { display: flex !important; }
 
   /* Dashboard on mobile — single column */
   .dash-stats { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
   #dash-extra-stats { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  #dash-avgwl-row { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  #dash-avgwl-row .dash-stat[style*="grid-column"] { grid-column: span 2 !important; }
   .dash-charts { grid-template-columns: 1fr !important; }
   .dash-filters .dash-filter-row { flex-direction: column; }
   .dash-filter-group { min-width: 100% !important; }
@@ -1907,68 +1980,66 @@ function doGet(e) {<br/>
   <button class="btn btn-secondary" style="width:100%;margin-top:8px;" onclick="closeMobileAddTrade()">Cancel</button>
 </div>
 <header>
-  <div class="logo">
-    <div class="logo-text" style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:var(--text)">CHART<span style="color:var(--accent)">D</span></div>
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;margin-left:10px;margin-top:4px;">TRADE JOURNAL</div>
+  <div class="logo" style="display:flex;align-items:center;gap:12px;">
+    <!-- Mobile hamburger -->
+    <button onclick="toggleSidebar()" id="hamburger-btn" style="display:none;background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 9px;border-radius:7px;cursor:pointer;font-size:16px;line-height:1;" aria-label="Menu">☰</button>
+    <div class="logo-text" style="font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:2px;color:var(--text)">CHART<span style="color:var(--accent)">D</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;margin-top:3px;">TRADE JOURNAL</div>
   </div>
   <div class="header-right">
-
-
     <div class="user-badge" id="user-badge" onclick="toggleUserMenu()" style="display:none;position:relative;">
       <div class="user-dot"></div>
       <span id="user-email-display">...</span>
     </div>
-    <div id="user-menu" style="display:none;position:absolute;top:54px;right:120px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:6px;z-index:500;min-width:140px;box-shadow:0 8px 24px rgba(0,0,0,0.4);">
+    <div id="user-menu" style="display:none;position:absolute;top:54px;right:24px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:6px;z-index:500;min-width:140px;box-shadow:0 8px 24px rgba(0,0,0,0.4);">
       <button onclick="signOut()" style="display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;background:transparent;border:none;color:var(--red);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;border-radius:6px;letter-spacing:1px;" onmouseover="this.style.background='rgba(255,69,96,0.1)'" onmouseout="this.style.background='transparent'">→ SIGN OUT</button>
     </div>
-    <button onclick="toggleTheme()" id="theme-btn" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 10px;border-radius:7px;cursor:pointer;font-size:16px;line-height:1;transition:all 0.15s;" title="Toggle light/dark mode">🌙</button>
-    <button onclick="openShareModal()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;padding:7px 12px;border-radius:7px;cursor:pointer;letter-spacing:1px;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">↗ Share</button>
-    <button class="btn btn-secondary" style="width:auto;padding:7px 14px;" onclick="showSettings()">⚙ Settings</button>
   </div>
 </header>
 
 <div class="app">
-  <!-- ── SIDEBAR ─────────────────────────────────────────────── -->
-  <aside class="sidebar">
+  <!-- ── NAV SIDEBAR ────────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
 
-    <!-- Today's P&L Summary -->
-    <div class="sidebar-section">
-      <div class="sidebar-label">Today's Session</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;">
-          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px;">NET P&L</div>
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;line-height:1;" id="sb-pnl">$0.00</div>
-        </div>
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;">
-          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-bottom:4px;">WIN RATE</div>
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;line-height:1;color:var(--accent);" id="sb-wr">—</div>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center;">
-          <div style="font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:1px;">TRADES</div>
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;line-height:1.2;" id="sb-trades">0</div>
-        </div>
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center;">
-          <div style="font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:1px;">WINS</div>
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;line-height:1.2;color:var(--green);" id="sb-wins">0</div>
-        </div>
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center;">
-          <div style="font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:1px;">LOSSES</div>
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;line-height:1.2;color:var(--red);" id="sb-losses">0</div>
-        </div>
-      </div>
-      <!-- Daily limit bar -->
-      <div style="margin-top:12px;">
-        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:5px;">
-          <span>DAILY LIMIT</span>
-          <span id="sb-limit-text">$0 / $1000</span>
-        </div>
-        <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden;">
-          <div id="sb-limit-bar" style="height:100%;width:0%;background:var(--green);border-radius:3px;transition:width 0.4s,background 0.3s;"></div>
-        </div>
-      </div>
+    <!-- Logo inside sidebar (visible on mobile drawer) -->
+    <div style="padding:12px 20px 16px;display:none;" class="sidebar-mobile-logo">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:2px;color:var(--text);">CHART<span style="color:var(--accent);">D</span></div>
     </div>
+
+    <!-- Main Nav -->
+    <span class="sidebar-label">Journal</span>
+    <button class="nav-item active" id="nav-dashboard" onclick="switchView('dashboard')">
+      <span class="nav-icon">▦</span> Dashboard
+    </button>
+    <button class="nav-item" id="nav-futures" onclick="switchView('futures')">
+      <span class="nav-icon">⚡</span> Futures
+    </button>
+    <button class="nav-item" id="nav-options" onclick="switchView('options')">
+      <span class="nav-icon">◉</span> Options
+    </button>
+    <button class="nav-item" id="nav-calendar" onclick="switchView('calendar-view')">
+      <span class="nav-icon">◫</span> Calendar
+    </button>
+
+    <div class="nav-divider"></div>
+
+    <span class="sidebar-label">Accounts</span>
+    <button class="nav-item" id="nav-accounts" onclick="switchView('accounts')">
+      <span class="nav-icon">◈</span> Prop Firms
+    </button>
+
+    <div class="nav-divider"></div>
+
+    <span class="sidebar-label">Tools</span>
+    <button class="nav-item" id="nav-goals" onclick="switchView('goals')">
+      <span class="nav-icon">◎</span> Goals
+    </button>
+    <button class="nav-item" onclick="openShareModal()">
+      <span class="nav-icon">↗</span> Share Card
+    </button>
+    <button class="nav-item" onclick="showSettings()">
+      <span class="nav-icon">⚙</span> Settings
+    </button>
 
     <!-- Hidden inputs still needed by addManualTrade JS -->
     <div style="display:none;">
@@ -1996,79 +2067,55 @@ function doGet(e) {<br/>
       <div id="m-options-fields"></div>
       <button id="m-type-futures"></button>
       <button id="m-type-options"></button>
+      <!-- Legacy sidebar IDs kept for JS compatibility -->
+      <div id="sb-pnl"></div>
+      <div id="sb-wr"></div>
+      <div id="sb-trades"></div>
+      <div id="sb-wins"></div>
+      <div id="sb-losses"></div>
+      <div id="sb-limit-text"></div>
+      <div id="sb-limit-bar"></div>
+      <div id="sidebar-goals-section"></div>
+      <div id="sidebar-goals-list"></div>
+      <div id="sync-log"><div class="log-entry"><span class="log-time">--:--</span><span class="log-info">Ready</span></div></div>
     </div>
 
-    <!-- Sidebar Goals -->
-    <div class="sidebar-section" id="sidebar-goals-section">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <div class="sidebar-label" style="margin-bottom:0;">GOALS</div>
-        <button onclick="switchView('goals')" style="background:transparent;border:none;color:var(--accent);font-family:var(--mono);font-size:9px;letter-spacing:1px;cursor:pointer;padding:0;">VIEW ALL →</button>
-      </div>
-      <div id="sidebar-goals-list">
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;padding:8px 0;">No goals set — <a href="#" onclick="switchView('goals');return false;" style="color:var(--accent);">add one</a></div>
-      </div>
-    </div>
-
-
-    <!-- Economic Calendar -->
-    <div class="sidebar-section">
-      <div class="sidebar-label">Economic Calendar</div>
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        <a href="https://www.forexfactory.com/calendar" target="_blank"
-           style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;text-decoration:none;transition:border-color 0.2s;"
-           onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-          <span style="font-size:18px;">📅</span>
-          <div>
-            <div style="font-family:var(--mono);font-size:11px;color:var(--text);font-weight:700;">Forex Factory</div>
-            <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">High-impact news</div>
-          </div>
-        </a>
-        <a href="https://tradingeconomics.com/calendar" target="_blank"
-           style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;text-decoration:none;transition:border-color 0.2s;"
-           onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-          <span style="font-size:18px;">📊</span>
-          <div>
-            <div style="font-family:var(--mono);font-size:11px;color:var(--text);font-weight:700;">Trading Economics</div>
-            <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">Economic releases</div>
-          </div>
-        </a>
-        <a href="https://www.cmegroup.com/trading/interest-rates/countdown-to-fomc.html" target="_blank"
-           style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;text-decoration:none;transition:border-color 0.2s;"
-           onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-          <span style="font-size:18px;">🏛</span>
-          <div>
-            <div style="font-family:var(--mono);font-size:11px;color:var(--text);font-weight:700;">CME FedWatch</div>
-            <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">FOMC probabilities</div>
-          </div>
-        </a>
-      </div>
-    </div>
-
-    <!-- Activity Log -->
-    <div class="sidebar-section" style="margin-top:auto;border-top:1px solid var(--border);border-bottom:none;">
-      <div class="sidebar-label">Activity Log</div>
-      <div class="sync-log" id="sync-log">
-        <div class="log-entry"><span class="log-time">--:--</span><span class="log-info">Ready — import a CSV to begin</span></div>
-      </div>
+    <!-- User section at bottom -->
+    <div class="sidebar-user">
+      <button class="sidebar-user-btn" id="sidebar-user-btn" onclick="toggleUserMenu()" style="display:none;">
+        <div class="user-dot"></div>
+        <span id="sidebar-email-display" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px;">...</span>
+      </button>
+      <button class="sidebar-user-btn" onclick="toggleTheme()">
+        <span style="font-size:15px;">🌙</span>
+        <span>Toggle Theme</span>
+      </button>
     </div>
   </aside>
+
+  <!-- Floating New Trade button -->
+  <button id="fab-new-trade" onclick="openAddFuturesModal()">
+    <span style="font-size:18px;line-height:1;">+</span> New Trade
+  </button>
 
   <!-- ── MAIN AREA ────────────────────────────────────────────── -->
   <div style="display:flex;flex-direction:column;overflow:hidden;flex:1;min-height:0;">
 
-    <!-- View Tabs -->
-    <div class="view-tabs">
-      <button class="view-tab active" id="tab-dashboard" onclick="switchView('dashboard')">Dashboard</button>
-      <button class="view-tab" id="tab-futures" onclick="switchView('futures')">Futures</button>
-      <button class="view-tab" id="tab-options" onclick="switchView('options')">Options</button>
-      <button class="view-tab" id="tab-goals" onclick="switchView('goals')">Goals</button>
-      <button class="view-tab" id="tab-accounts" onclick="switchView('accounts')">Accounts</button>
-      <div style="flex:1;"></div>
-      <div style="display:flex;align-items:center;gap:6px;padding:8px 0;">
-        <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">LIMIT $</span>
-        <input type="number" id="max-loss-inline" value="1000" min="0" step="50"
-          style="width:72px;padding:4px 8px;font-size:11px;margin:0;border-radius:5px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;"
-          oninput="state.maxLoss=parseFloat(this.value)||1000;updateStats();"/>
+    <!-- Page Title Bar -->
+    <div style="padding:14px 24px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--text);" id="page-title">Dashboard</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;" id="max-loss-wrap">
+          <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">LIMIT $</span>
+          <input type="number" id="max-loss-inline" value="1000" min="0" step="50"
+            style="width:72px;padding:4px 8px;font-size:11px;margin:0;border-radius:5px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;"
+            oninput="state.maxLoss=parseFloat(this.value)||1000;updateStats();"/>
+        </div>
+        <label style="margin:0;cursor:pointer;">
+          <input type="file" accept=".csv" multiple onchange="handleFileSelect(event)" style="display:none;"/>
+          <span style="display:inline-flex;align-items:center;gap:6px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:7px 14px;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">↓ Import CSV</span>
+        </label>
+        <button onclick="openAddFuturesModal()" style="background:var(--accent);color:#080c12;border:none;border-radius:7px;padding:7px 14px;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='#00c98c'" onmouseout="this.style.background='var(--accent)'">+ New Trade</button>
       </div>
     </div>
 
@@ -2179,6 +2226,7 @@ function doGet(e) {<br/>
           <div id="breakdown-session"></div>
         </div>
       </div>
+      <!-- Top stat cards: 4 across -->
       <div class="dash-stats">
         <div class="dash-stat" id="dcard-pnl">
           <div class="dash-stat-label">Net P&L</div>
@@ -2191,20 +2239,64 @@ function doGet(e) {<br/>
           <div class="dash-stat-sub" id="dstat-wr-sub">W / L</div>
         </div>
         <div class="dash-stat">
+          <div class="dash-stat-label">Day Win %</div>
+          <div class="dash-stat-value" id="dstat-daywin">—</div>
+          <div class="dash-stat-sub" id="dstat-daywin-sub">green / red days</div>
+        </div>
+        <div class="dash-stat">
           <div class="dash-stat-label">Profit Factor</div>
           <div class="dash-stat-value" id="dstat-pf">—</div>
-          <div class="dash-stat-sub">wins / losses</div>
-        </div>
-        <div class="dash-stat acc">
-          <div class="dash-stat-label">Largest Trade</div>
-          <div class="dash-stat-value acc" id="dstat-r">—</div>
-          <div class="dash-stat-sub" id="dstat-r-sub">largest loss</div>
+          <div class="dash-stat-sub">gross wins / losses</div>
         </div>
       </div>
-      <div class="dash-charts">
+
+      <!-- Avg Win / Avg Loss ratio row -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;" id="dash-avgwl-row">
+        <div class="dash-stat acc">
+          <div class="dash-stat-label">Avg Win</div>
+          <div class="dash-stat-value pos" id="dstat-avgwin">—</div>
+          <div class="dash-stat-sub">per winning trade</div>
+        </div>
+        <div class="dash-stat">
+          <div class="dash-stat-label">Avg Loss</div>
+          <div class="dash-stat-value neg" id="dstat-avgloss">—</div>
+          <div class="dash-stat-sub">per losing trade</div>
+        </div>
+        <div class="dash-stat" style="grid-column:span 2;">
+          <div class="dash-stat-label">Avg Win / Avg Loss Ratio</div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--accent);min-width:48px;" id="dstat-wl-ratio">—</div>
+            <div style="flex:1;">
+              <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:5px;">
+                <span id="dstat-ratio-win-lbl">Avg Win $0</span>
+                <span id="dstat-ratio-loss-lbl">Avg Loss $0</span>
+              </div>
+              <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;display:flex;">
+                <div id="dstat-ratio-win-bar" style="height:100%;background:var(--green);border-radius:3px 0 0 3px;transition:width 0.5s;width:50%;"></div>
+                <div id="dstat-ratio-loss-bar" style="height:100%;background:var(--red);border-radius:0 3px 3px 0;transition:width 0.5s;width:50%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts row: Cumulative PnL (wide) + Drawdown -->
+      <div class="dash-charts" style="grid-template-columns:2fr 1fr;">
         <div class="dash-chart-card">
           <div class="dash-chart-title">CUMULATIVE P&L <span id="chart-pnl-total">$0</span></div>
-          <div style="position:relative;height:160px;"><canvas id="pnl-chart"></canvas></div>
+          <div style="position:relative;height:180px;"><canvas id="pnl-chart"></canvas></div>
+        </div>
+        <div class="dash-chart-card">
+          <div class="dash-chart-title">DRAWDOWN <span id="chart-dd-max" style="color:var(--red);"></span></div>
+          <div style="position:relative;height:180px;"><canvas id="dd-chart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Daily P&L bar chart + Win/Loss doughnut -->
+      <div class="dash-charts" style="grid-template-columns:2fr 1fr;margin-bottom:20px;">
+        <div class="dash-chart-card">
+          <div class="dash-chart-title">DAILY P&L</div>
+          <div style="position:relative;height:160px;"><canvas id="daily-chart"></canvas></div>
         </div>
         <div class="dash-chart-card">
           <div class="dash-chart-title">WIN / LOSS</div>
@@ -2230,6 +2322,11 @@ function doGet(e) {<br/>
           <div class="dash-stat-value" id="dstat-streak">—</div>
           <div class="dash-stat-sub" id="dstat-streak-sub">no trades</div>
         </div>
+        <div class="dash-stat acc">
+          <div class="dash-stat-label">Largest Win</div>
+          <div class="dash-stat-value pos" id="dstat-r">—</div>
+          <div class="dash-stat-sub" id="dstat-r-sub">largest loss</div>
+        </div>
         <div class="dash-stat">
           <div class="dash-stat-label">Best Day</div>
           <div class="dash-stat-value pnl-pos" id="dstat-best-day">—</div>
@@ -2239,11 +2336,6 @@ function doGet(e) {<br/>
           <div class="dash-stat-label">Worst Day</div>
           <div class="dash-stat-value pnl-neg" id="dstat-worst-day">—</div>
           <div class="dash-stat-sub" id="dstat-worst-day-sub">—</div>
-        </div>
-        <div class="dash-stat">
-          <div class="dash-stat-label">Consistency</div>
-          <div class="dash-stat-value" id="dstat-consistency">—</div>
-          <div class="dash-stat-sub" id="dstat-consistency-sub">green days</div>
         </div>
       </div>
 
@@ -2452,10 +2544,13 @@ function doGet(e) {<br/>
       </div>
     </div>
 
+    <!-- ── CALENDAR VIEW ────────────────────────────────────────── -->
+    <div class="main" id="view-calendar-view" style="display:none;">
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--accent);letter-spacing:2px;margin-bottom:20px;">CALENDAR — Daily P&L</div>
+    </div>
+
   </div>
 </div>
-
-<!-- Trade Detail Panel -->
 <div class="trade-detail-overlay" id="detail-overlay" onclick="closeTradeDetail()"></div>
 <div class="trade-detail-panel" id="detail-panel">
   <div class="detail-header">
@@ -3614,6 +3709,14 @@ function closeSidebar() {
   document.body.style.overflow = '';
 }
 
+function openAddTradeModal() {
+  if (window.innerWidth <= 768) {
+    openMobileAddTrade();
+  } else {
+    openAddFuturesModal();
+  }
+}
+
 function openMobileImport() {
   document.getElementById('mobile-import-sheet').classList.add('open');
   document.getElementById('drawer-backdrop').classList.add('show');
@@ -3802,12 +3905,24 @@ async function onSignedIn(user) {
   currentUser = user;
   document.getElementById('auth-screen').style.display = 'none';
 
-  // Show user badge in header
+  // Show user badge in header (kept for compatibility)
   const badge = document.getElementById('user-badge');
   if (badge) {
     badge.style.display = 'flex';
     document.getElementById('user-email-display').textContent = user.email.split('@')[0];
   }
+
+  // Show sidebar user button
+  const sidebarBtn = document.getElementById('sidebar-user-btn');
+  if (sidebarBtn) {
+    sidebarBtn.style.display = 'flex';
+    const emailSpan = document.getElementById('sidebar-email-display');
+    if (emailSpan) emailSpan.textContent = user.email;
+  }
+
+  // Show mobile hamburger
+  const ham = document.getElementById('hamburger-btn');
+  if (ham) ham.style.display = 'flex';
 
   // Restore settings
   const savedMaxLoss = parseFloat(localStorage.getItem('chartd_maxLoss')) || 1000;
@@ -4067,18 +4182,56 @@ function closeMobileMore() {
   document.getElementById('mobile-more-backdrop').style.display = 'none';
 }
 
+const PAGE_TITLES = {
+  'dashboard':    'Dashboard',
+  'futures':      'Futures Trades',
+  'options':      'Options Trades',
+  'goals':        'Goals',
+  'accounts':     'Prop Firms',
+  'calendar-view':'Calendar',
+};
+
+const NAV_MAP = {
+  'dashboard':    'nav-dashboard',
+  'futures':      'nav-futures',
+  'options':      'nav-options',
+  'calendar-view':'nav-calendar',
+  'goals':        'nav-goals',
+  'accounts':     'nav-accounts',
+};
+
 function switchView(view) {
   currentView = view;
-  ['dashboard','futures','options','goals','accounts'].forEach(v => {
+  // Show/hide views
+  ['dashboard','futures','options','goals','accounts','calendar-view'].forEach(v => {
     const el = document.getElementById('view-' + v);
     if (el) el.style.display = v === view ? 'block' : 'none';
-    const tab = document.getElementById('tab-' + v);
-    if (tab) tab.classList.toggle('active', v === view);
   });
-  if (view === 'dashboard') renderDashboard();
-  if (view === 'options')   renderOptionsTable();
-  if (view === 'goals')     renderGoals();
-  if (view === 'accounts') renderAccounts();
+  // Update nav item active state
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const activeNav = NAV_MAP[view];
+  if (activeNav) {
+    const navEl = document.getElementById(activeNav);
+    if (navEl) navEl.classList.add('active');
+  }
+  // Update page title
+  const titleEl = document.getElementById('page-title');
+  if (titleEl) titleEl.textContent = PAGE_TITLES[view] || 'Dashboard';
+  // Render views
+  if (view === 'dashboard')     renderDashboard();
+  if (view === 'options')       renderOptionsTable();
+  if (view === 'goals')         renderGoals();
+  if (view === 'accounts')      renderAccounts();
+  if (view === 'calendar-view') renderCalendarView();
+  // Close mobile sidebar after nav (no-op on desktop)
+  if (window.innerWidth <= 768) closeSidebar();
+}
+
+function renderCalendarView() {
+  // Calendar view renders the existing heatmap in a dedicated full view
+  const el = document.getElementById('view-calendar-view');
+  if (!el) return;
+  el.innerHTML = '<div style="padding:24px;"><div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--accent);letter-spacing:2px;margin-bottom:20px;">COMING SOON — Calendar view with daily P&L will appear here.</div></div>';
 }
 
 function setDashRange(range, btn) {
@@ -4181,13 +4334,27 @@ function renderDashboard() {
   const losses = trades.filter(t => t.net < 0);
   const totalNet = trades.reduce((s,t) => s + (t.net||0), 0);
   const wr = trades.length > 0 ? (wins.length / trades.length * 100) : null;
-  const rsWithVal = trades.filter(t => t.r != null);
-  const avgR = rsWithVal.length > 0 ? rsWithVal.reduce((s,t) => s + t.r, 0) / rsWithVal.length : null;
   const grossWins   = wins.reduce((s,t) => s + (t.gross||0), 0);
   const grossLosses = Math.abs(losses.reduce((s,t) => s + (t.gross||0), 0));
   const pf = grossLosses > 0 ? (grossWins / grossLosses) : null;
   const avgWin  = wins.length  > 0 ? wins.reduce((s,t)   => s + (t.net||0), 0) / wins.length  : null;
   const avgLoss = losses.length > 0 ? losses.reduce((s,t) => s + (t.net||0), 0) / losses.length : null;
+  const bigWin  = wins.length  > 0 ? Math.max(...wins.map(t => t.net||0))   : null;
+  const bigLoss = losses.length > 0 ? Math.min(...losses.map(t => t.net||0)) : null;
+
+  // Day Win % — group trades by calendar day
+  const dayMap = {};
+  trades.forEach(t => {
+    const d = t.time instanceof Date ? t.time : new Date(t.time);
+    if (isNaN(d)) return;
+    const key = d.toLocaleDateString();
+    dayMap[key] = (dayMap[key] || 0) + (t.net || 0);
+  });
+  const dayVals = Object.values(dayMap);
+  const greenDays = dayVals.filter(v => v > 0).length;
+  const redDays   = dayVals.filter(v => v < 0).length;
+  const totalDays = dayVals.length;
+  const dayWinPct = totalDays > 0 ? (greenDays / totalDays * 100) : null;
 
   // Stat cards
   const pnlEl = document.getElementById('dstat-pnl');
@@ -4197,15 +4364,54 @@ function renderDashboard() {
   document.getElementById('dcard-pnl').className = 'dash-stat ' + (totalNet > 0 ? 'pos' : totalNet < 0 ? 'neg' : '');
   document.getElementById('dstat-wr').textContent = wr != null ? wr.toFixed(1) + '%' : '—';
   document.getElementById('dstat-wr-sub').textContent = wins.length + 'W / ' + losses.length + 'L';
+
+  // Day Win %
+  const dayWinEl = document.getElementById('dstat-daywin');
+  if (dayWinEl) {
+    dayWinEl.textContent = dayWinPct != null ? dayWinPct.toFixed(1) + '%' : '—';
+    dayWinEl.className = 'dash-stat-value ' + (dayWinPct >= 50 ? 'pos' : dayWinPct != null ? 'neg' : '');
+  }
+  const dayWinSub = document.getElementById('dstat-daywin-sub');
+  if (dayWinSub) dayWinSub.textContent = totalDays > 0 ? greenDays + ' green / ' + redDays + ' red' : 'no trading days';
+
   document.getElementById('dstat-pf').textContent = pf != null ? pf.toFixed(2) : '—';
-  const bigWin  = wins.length  > 0 ? Math.max(...wins.map(t => t.net||0))   : null;
-  const bigLoss = losses.length > 0 ? Math.min(...losses.map(t => t.net||0)) : null;
+
+  // Avg Win / Avg Loss
+  const avgWinEl = document.getElementById('dstat-avgwin');
+  if (avgWinEl) avgWinEl.textContent = avgWin != null ? '+$' + avgWin.toFixed(2) : '—';
+  const avgLossEl = document.getElementById('dstat-avgloss');
+  if (avgLossEl) avgLossEl.textContent = avgLoss != null ? '-$' + Math.abs(avgLoss).toFixed(2) : '—';
+
+  // Win/Loss ratio bar
+  const ratioEl = document.getElementById('dstat-wl-ratio');
+  if (ratioEl && avgWin != null && avgLoss != null) {
+    const ratio = avgWin / Math.abs(avgLoss);
+    ratioEl.textContent = ratio.toFixed(2) + 'R';
+    const total = avgWin + Math.abs(avgLoss);
+    const winPct = (avgWin / total * 100).toFixed(1);
+    const lossPct = (Math.abs(avgLoss) / total * 100).toFixed(1);
+    const winBar = document.getElementById('dstat-ratio-win-bar');
+    const lossBar = document.getElementById('dstat-ratio-loss-bar');
+    const winLbl = document.getElementById('dstat-ratio-win-lbl');
+    const lossLbl = document.getElementById('dstat-ratio-loss-lbl');
+    if (winBar)  winBar.style.width  = winPct + '%';
+    if (lossBar) lossBar.style.width = lossPct + '%';
+    if (winLbl)  winLbl.textContent  = 'Avg Win $' + avgWin.toFixed(0);
+    if (lossLbl) lossLbl.textContent = 'Avg Loss $' + Math.abs(avgLoss).toFixed(0);
+  } else if (ratioEl) {
+    ratioEl.textContent = '—';
+  }
+
+  // Largest win/loss
   document.getElementById('dstat-r').textContent = bigWin != null ? '+$' + bigWin.toFixed(2) : '—';
   const dRSub = document.getElementById('dstat-r-sub');
   if (dRSub) dRSub.textContent = bigLoss != null ? '-$' + Math.abs(bigLoss).toFixed(2) + ' largest loss' : '—';
+
   document.getElementById('chart-pnl-total').textContent = (totalNet >= 0 ? '+' : '') + '$' + totalNet.toFixed(2);
 
   renderPnLChart(trades);
+  renderDrawdownChart(trades);
+  renderDailyChart(trades);
   renderWLChart(wins.length, losses.length);
   renderCalendar();
   renderBreakdowns(trades);
@@ -4280,6 +4486,135 @@ function renderPnLChart(trades) {
     }
   });
   } catch(e) { console.warn('pnlChart error:', e); }
+}
+
+function renderDrawdownChart(trades) {
+  try {
+  const canvas = document.getElementById('dd-chart');
+  if (!canvas || !window.Chart) return;
+  const ctx = canvas.getContext('2d');
+  if (window._ddChart) { window._ddChart.destroy(); window._ddChart = null; }
+
+  const sorted = [...trades].sort((a,b) => {
+    const da = a.time instanceof Date ? a.time : new Date(a.time);
+    const db = b.time instanceof Date ? b.time : new Date(b.time);
+    return da - db;
+  });
+
+  let peak = 0, cumulative = 0;
+  const ddData = [];
+  sorted.forEach(t => {
+    cumulative += t.net || 0;
+    if (cumulative > peak) peak = cumulative;
+    const dd = peak > 0 ? ((peak - cumulative) / peak * 100) : 0;
+    ddData.push(parseFloat(dd.toFixed(2)));
+  });
+
+  const maxDD = ddData.length > 0 ? Math.max(...ddData) : 0;
+  const ddEl = document.getElementById('chart-dd-max');
+  if (ddEl) ddEl.textContent = maxDD > 0 ? '-' + maxDD.toFixed(1) + '%' : '';
+
+  window._ddChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ddData.map((_,i) => i + 1),
+      datasets: [{
+        data: ddData,
+        borderColor: '#ff4560',
+        borderWidth: 2,
+        fill: true,
+        backgroundColor: (context) => {
+          const chart = context.chart;
+          const {ctx: c, chartArea} = chart;
+          if (!chartArea) return 'transparent';
+          const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          gradient.addColorStop(0, 'rgba(255,69,96,0.25)');
+          gradient.addColorStop(1, 'rgba(255,69,96,0)');
+          return gradient;
+        },
+        tension: 0.4,
+        pointRadius: 0,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: (ctx) => ' -' + ctx.parsed.y.toFixed(2) + '%' },
+        backgroundColor: '#141c2a', borderColor: '#1e2840', borderWidth: 1,
+        titleColor: '#8b9ab8', bodyColor: '#e8edf5'
+      }},
+      scales: {
+        x: { display: false },
+        y: {
+          reverse: true,
+          grid: { color: 'rgba(30,40,64,0.8)' },
+          ticks: { color: '#8b9ab8', font: { family: 'DM Mono', size: 10 },
+            callback: (v) => '-' + v.toFixed(0) + '%' }
+        }
+      }
+    }
+  });
+  } catch(e) { console.warn('ddChart error:', e); }
+}
+
+function renderDailyChart(trades) {
+  try {
+  const canvas = document.getElementById('daily-chart');
+  if (!canvas || !window.Chart) return;
+  const ctx = canvas.getContext('2d');
+  if (window._dailyChart) { window._dailyChart.destroy(); window._dailyChart = null; }
+
+  // Group by day
+  const dayMap = {};
+  const sorted = [...trades].sort((a,b) => {
+    const da = a.time instanceof Date ? a.time : new Date(a.time);
+    const db = b.time instanceof Date ? b.time : new Date(b.time);
+    return da - db;
+  });
+  sorted.forEach(t => {
+    const d = t.time instanceof Date ? t.time : new Date(t.time);
+    if (isNaN(d)) return;
+    const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    dayMap[key] = (dayMap[key] || 0) + (t.net || 0);
+  });
+
+  const labels = Object.keys(dayMap).slice(-30); // last 30 trading days
+  const data   = labels.map(k => parseFloat(dayMap[k].toFixed(2)));
+  const colors = data.map(v => v >= 0 ? 'rgba(0,229,160,0.8)' : 'rgba(255,69,96,0.8)');
+  const borders = data.map(v => v >= 0 ? '#00e5a0' : '#ff4560');
+
+  window._dailyChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        borderColor: borders,
+        borderWidth: 1,
+        borderRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: (ctx) => ' $' + ctx.parsed.y.toFixed(2) },
+        backgroundColor: '#141c2a', borderColor: '#1e2840', borderWidth: 1,
+        titleColor: '#8b9ab8', bodyColor: '#e8edf5'
+      }},
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#8b9ab8', font: { family: 'DM Mono', size: 9 }, maxRotation: 45, maxTicksLimit: 10 } },
+        y: {
+          grid: { color: 'rgba(30,40,64,0.8)' },
+          ticks: { color: '#8b9ab8', font: { family: 'DM Mono', size: 10 },
+            callback: (v) => '$' + v.toFixed(0) }
+        }
+      }
+    }
+  });
+  } catch(e) { console.warn('dailyChart error:', e); }
 }
 
 function renderWLChart(wins, losses) {
