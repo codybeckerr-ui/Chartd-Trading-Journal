@@ -1926,7 +1926,6 @@ function doGet(e) {<br/>
       </div>
     </div>
 
-    <button class="btn btn-primary" onclick="launch()">LAUNCH JOURNAL →</button>
   </div>
 </div>
 
@@ -2644,7 +2643,8 @@ function launch() {
   state.maxLoss = parseFloat(document.getElementById('max-loss-inline').value) || 1000;
   // Persist to localStorage so it survives page refresh
   localStorage.setItem('chartd_maxLoss', state.maxLoss);
-  document.getElementById('setup-screen').style.display = 'none';
+  const ss = document.getElementById('setup-screen');
+  if (ss) ss.style.display = 'none';
   setStatus('tv', 'connected', 'Ready');
   addLog('Chartd Journal ready — import a CSV or add trades manually', 'ok');
   toast('Welcome to Chartd Journal!', 'success');
@@ -3837,13 +3837,15 @@ function clearAuthMessages() {
 function toggleGsSetup() {
   const panel = document.getElementById('gs-setup-panel');
   const arrow = document.getElementById('gs-toggle-arrow');
+  if (!panel) return;
   const open  = panel.style.display === 'none';
   panel.style.display = open ? 'block' : 'none';
-  arrow.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+  if (arrow) arrow.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
 }
 
 function toggleAuthHelp() {
   const panel = document.getElementById('auth-help-panel');
+  if (!panel) return;
   panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 }
 
@@ -3879,7 +3881,8 @@ async function handleAuth() {
     }
 
     // Signed in successfully
-    const gsUrl = document.getElementById('gs-url').value.trim();
+    const gsUrlEl = document.getElementById('gs-url');
+    const gsUrl = gsUrlEl ? gsUrlEl.value.trim() : '';
     if (gsUrl) {
       localStorage.setItem('chartd_gsUrl', gsUrl);
       state.gsUrl = gsUrl;
@@ -3973,7 +3976,10 @@ async function signOut() {
   updateStats();
   updateTradeSelect();
   document.getElementById('auth-screen').style.display = 'flex';
-  document.getElementById('user-badge').style.display = 'none';
+  const ub = document.getElementById('user-badge');
+  if (ub) ub.style.display = 'none';
+  const sbBtn = document.getElementById('sidebar-user-btn');
+  if (sbBtn) sbBtn.style.display = 'none';
   toast('Signed out', 'info');
 }
 
@@ -7057,7 +7063,8 @@ function getTradingDateStr(dt) {
   } else {
     // Show auth screen
     document.getElementById('auth-screen').style.display = 'flex';
-    document.getElementById('setup-screen').style.display = 'none';
+    const ss2 = document.getElementById('setup-screen');
+    if (ss2) ss2.style.display = 'none';
   }
 
   // Listen for auth state changes
