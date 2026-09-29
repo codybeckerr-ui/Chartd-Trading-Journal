@@ -26,10 +26,13 @@ Journal data persists in `./data`.
 
 ## Updating from the Google Sheet
 
-The generated seed currently reflects the Google Sheet as of 2026-09-28. To refresh it, regenerate `overrides/demo.ts` from the `Raw Trade Log` source before rebuilding.
+The generated seed currently reflects the Google Sheet through 2026-09-28. To refresh it, regenerate `overrides/demo.ts` from the `Raw Trade Log` source before rebuilding.
 
 ## Upstream
 
 This wrapper pins LuxAlgo Trade Journal commit `949bca1993ee284e1facf2e26cfd1fa820b8f5cf` for reproducible builds. Review upstream changes before changing the pin.
 
 LuxAlgo Trade Journal is MIT licensed. LuxAlgo trademarks remain subject to their trademark policy.
+
+
+Seed validation: 8 rows use Net P&L and 188 rows use historical P&L fallback. Seeded total P&L: $5504.30.
