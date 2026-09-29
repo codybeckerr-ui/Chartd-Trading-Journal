@@ -1,0 +1,11 @@
+services:
+  journal:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      JOURNAL_DATA_DIR: /opt/app/apps/web/data
+      NEXT_TELEMETRY_DISABLED: "1"
+    volumes:
+      - ./data:/opt/app/apps/web/data
+    restart: unless-stopped
